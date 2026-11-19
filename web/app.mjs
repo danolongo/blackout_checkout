@@ -132,7 +132,9 @@ async function init(){
   config=await get('settings','config');
   if(!config){try{config=await api('/api/config');await save('settings','config',config);}catch{notice('Connect once to set up this register',true);return;}}
   if(config.rehearsal)$('network').textContent='Local rehearsal';
-  if('serviceWorker' in navigator){await navigator.serviceWorker.register('/sw.js');await navigator.serviceWorker.ready;cacheReady=true;}
+  if('serviceWorker' in navigator){const active=await navigator.serviceWorker.getRegistration();
+    if(!active)await navigator.serviceWorker.register('/sw.js');
+    await navigator.serviceWorker.ready;cacheReady=true;}
   if(location.hash.startsWith('#order='))return customer(parseOrder(location.href));
   await merchant();
 }

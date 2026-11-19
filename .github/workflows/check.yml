@@ -7,6 +7,12 @@ permissions:
   contents: read
 jobs:
   verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, webkit]
+    env:
+      BROWSER: ${{ matrix.browser }}
     runs-on: ubuntu-24.04
     timeout-minutes: 12
     steps:
@@ -17,7 +23,7 @@ jobs:
       - run: if test -f package-lock.json; then npm ci; else npm install; fi
       - run: npm test
       - run: npm run build
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps ${{ matrix.browser }}
       - run: npm run test:browser
       - run: node scripts/deploy.mjs --prepare
       - name: Probe public Arc testnet independently of offline tests
@@ -26,7 +32,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: checkout-evidence
+          name: checkout-evidence-${{ matrix.browser }}
           path: |
             artifacts/
             package-lock.json

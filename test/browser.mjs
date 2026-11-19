@@ -1,6 +1,6 @@
 import {spawn} from 'node:child_process';
 import {setTimeout as sleep} from 'node:timers/promises';
-import {chromium} from 'playwright';
+import {chromium, webkit} from 'playwright';
 import assert from 'node:assert/strict';
 const child=spawn(process.execPath,['scripts/rehearse.mjs'],{stdio:'inherit',detached:true});
 let browser;
@@ -8,9 +8,16 @@ try{
   const origin='http://localhost:4173';let ready=false;
   for(let i=0;i<90;i++){try{const r=await fetch(origin+'/api/config');if(r.ok){ready=true;break;}}catch{}await sleep(300);}
   assert.ok(ready,'Rehearsal server starts');
-  browser=await chromium.launch();const merchant=await browser.newContext(),buyer=await browser.newContext();
+  const engine = process.env.BROWSER === 'webkit' ? webkit : chromium;
+  browser=await engine.launch();const merchant=await browser.newContext(),buyer=await browser.newContext();
   const m=await merchant.newPage(),b=await buyer.newPage();
+  m.on('pageerror', error => console.error('Merchant page:', error.message));
+  b.on('pageerror', error => console.error('Buyer page:', error.message));
   await m.goto(origin);await m.getByLabel('Vendor wallet').fill('0x0000000000000000000000000000000000000011');
+  await m.evaluate(() => navigator.serviceWorker.ready);
+  await m.waitForFunction(() => navigator.serviceWorker.controller !== null);
+  await merchant.setOffline(true);
+  await m.reload();
   await m.getByLabel('Amount in test USDC').fill('1');await m.getByRole('button',{name:'Create order'}).click();
   await m.locator('#qr:not([hidden])').waitFor();
   // Read the displayed QR pixels, as opposed to copying a wallet request from browser storage.
