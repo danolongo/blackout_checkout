@@ -15,7 +15,16 @@ function line(text){box.append(el('p',text));}
 function input(label,value='',type='text'){const id='input'+box.children.length,l=el('label',label);
   l.htmlFor=id;const n=el('input','');n.id=id;n.type=type;n.value=value;box.append(l,n);return n;}
 function button(label,fn){const b=el('button',label);b.onclick=async()=>{b.disabled=true;try{await fn();}catch(e){notice(e.shortMessage||e.message,true);}finally{b.disabled=false;}};box.append(b);return b;}
-function stop(){scanner++;if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;$('camera').hidden=true;$('stop').hidden=true;}
+function stop(){
+  scanner++;
+  const video=$('camera');
+  video.pause();
+  video.srcObject=null;
+  if(stream)stream.getTracks().forEach(track=>track.stop());
+  stream=null;
+  video.hidden=true;
+  $('stop').hidden=true;
+}
 function view(title,next){clearInterval(qrTimer);stop();mode=next;$('title').textContent=title;box.replaceChildren();qr.hidden=true;notice('');
   for(const n of ['merchant','customer','sales'])$(n).setAttribute('aria-current',String(n===mode));}
 async function draw(s){await QRCode.toCanvas(qr,s,{width:420,margin:4,errorCorrectionLevel:'L'});qr.hidden=false;}

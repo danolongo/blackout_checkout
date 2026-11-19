@@ -6,7 +6,7 @@ import {setTimeout as sleep} from 'node:timers/promises';
 import {chromium, webkit} from 'playwright';
 import assert from 'node:assert/strict';
 const child=spawn(process.execPath,['scripts/rehearse.mjs'],{stdio:'inherit',detached:true});
-let browser;
+let browser, observedPage;
 let disconnected = false;
 const gateway = http.createServer((request, response) => {
   if (disconnected && request.headers.cookie?.includes('registerDevice=merchant')) {
@@ -41,7 +41,7 @@ try{
   await m.evaluate(() => navigator.serviceWorker.ready);
   await m.waitForFunction(() => navigator.serviceWorker.controller !== null);
   await setDisconnected(true);
-  await m.close(); m=await merchant.newPage(); await m.goto(origin);
+  await m.close(); m=await merchant.newPage(); observedPage=m; await m.goto(origin);
   assert.equal(await m.evaluate(async()=>{try{await fetch('/api/config',{cache:'no-store'});return true;}catch{return false;}}),false,'Merchant cannot reach the server');
   const verifier = await build({
     entryPoints:['src/proof.mjs'], write:false, bundle:true, inject:['web/shim.mjs'],
@@ -70,7 +70,7 @@ try{
   await b.getByRole('button',{name:'Pay or retrieve receipt'}).click();
   await b.getByText('Show your receipt',{exact:true}).waitFor({timeout:65000});
   await b.locator('#qr:not([hidden])').waitFor();const signed=await readQR(b);
-  await setDisconnected(true);await m.close(); m=await merchant.newPage(); await m.goto(origin);await m.getByRole('button',{name:'Scan existing receipt'}).waitFor();
+  await setDisconnected(true);await m.close(); m=await merchant.newPage(); observedPage=m; await m.goto(origin);await m.getByRole('button',{name:'Scan existing receipt'}).waitFor();
   // Inject a camera stream from the buyer's actual QR image; both contexts remain isolated.
   const png=await b.locator('#qr').evaluate(c=>c.toDataURL());
   await m.evaluate(async url=>{
@@ -78,7 +78,7 @@ try{
     navigator.mediaDevices.getUserMedia=async()=>{
       const c=document.createElement('canvas');c.width=512;c.height=512;const ctx=c.getContext('2d');
       const draw=()=>{ctx.fillStyle='white';ctx.fillRect(0,0,512,512);ctx.drawImage(img,28,28,456,456);};
-      draw();const stream=c.captureStream(12);setInterval(draw,80);return stream;
+      draw();const stream=c.captureStream(12);const timer=setInterval(()=>{if(stream.active)draw();else clearInterval(timer);},80);return stream;
     };
   },png);
   await m.getByRole('button',{name:'Scan existing receipt'}).click();await m.getByText('Payment accepted',{exact:true}).waitFor({timeout:25000});
@@ -87,4 +87,12 @@ try{
   await setDisconnected(false);await m.getByRole('button',{name:'Sales',exact:true}).click();
   await m.getByRole('button',{name:'Check against Arc'}).click();await m.getByText('confirmed',{exact:true}).waitFor();
   assert.ok(JSON.parse(signed).signature);console.log('Passed: actual QR pixels, payment, offline restart, camera handoff, replay refusal, and reconciliation');
+}catch(error){
+  if(observedPage)console.error('Register state:',await observedPage.evaluate(()=>({
+    title:document.querySelector('#title')?.textContent,
+    status:document.querySelector('#status')?.textContent,
+    video:document.querySelector('video')?.readyState,
+    paused:document.querySelector('video')?.paused
+  })).catch(()=>null));
+  throw error;
 }finally{await browser?.close();gateway.closeAllConnections();gateway.close();try{process.kill(-child.pid,'SIGTERM');}catch{}}
