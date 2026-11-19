@@ -1,23 +1,46 @@
+import http from 'node:http';
 import {spawn} from 'node:child_process';
 import {setTimeout as sleep} from 'node:timers/promises';
 import {chromium, webkit} from 'playwright';
 import assert from 'node:assert/strict';
 const child=spawn(process.execPath,['scripts/rehearse.mjs'],{stdio:'inherit',detached:true});
 let browser;
+let disconnected = false;
+const gateway = http.createServer((request, response) => {
+  if (disconnected && request.headers.cookie?.includes('registerDevice=merchant')) {
+    request.socket.destroy();
+    return;
+  }
+  const upstream = http.request({hostname:'127.0.0.1',port:4173,path:request.url,
+    method:request.method,headers:request.headers}, incoming => {
+    response.writeHead(incoming.statusCode,incoming.headers);
+    incoming.pipe(response);
+  });
+  upstream.on('error', () => response.destroy());
+  request.pipe(upstream);
+});
+await new Promise(resolve => gateway.listen(0,'127.0.0.1',resolve));
 try{
-  const origin='http://localhost:4173';let ready=false;
+  const origin='http://127.0.0.1:'+gateway.address().port;let ready=false;
   for(let i=0;i<90;i++){try{const r=await fetch(origin+'/api/config');if(r.ok){ready=true;break;}}catch{}await sleep(300);}
   assert.ok(ready,'Rehearsal server starts');
   const engine = process.env.BROWSER === 'webkit' ? webkit : chromium;
   browser=await engine.launch();const merchant=await browser.newContext(),buyer=await browser.newContext();
-  const m=await merchant.newPage(),b=await buyer.newPage();
+  await merchant.addCookies([{name:'registerDevice',value:'merchant',url:origin}]);
+  const setDisconnected = async value => {
+    disconnected = value;
+    if (engine === chromium) await merchant.setOffline(value);
+  };
+  let m=await merchant.newPage();
+  const b=await buyer.newPage();
   m.on('pageerror', error => console.error('Merchant page:', error.message));
   b.on('pageerror', error => console.error('Buyer page:', error.message));
   await m.goto(origin);
   await m.evaluate(() => navigator.serviceWorker.ready);
   await m.waitForFunction(() => navigator.serviceWorker.controller !== null);
-  await merchant.setOffline(true);
-  await m.reload();
+  await setDisconnected(true);
+  await m.close(); m=await merchant.newPage(); await m.goto(origin);
+  assert.equal(await m.evaluate(async()=>{try{await fetch('/api/config',{cache:'no-store'});return true;}catch{return false;}}),false,'Merchant cannot reach the server');
   await m.getByLabel('Vendor wallet').fill('0x0000000000000000000000000000000000000011');
   await m.getByLabel('Amount in test USDC').fill('1');await m.getByRole('button',{name:'Create order'}).click();
   await m.locator('#qr:not([hidden])').waitFor();
@@ -32,7 +55,7 @@ try{
   await b.getByRole('button',{name:'Pay or retrieve receipt'}).click();
   await b.getByText('Show your receipt',{exact:true}).waitFor({timeout:65000});
   await b.locator('#qr:not([hidden])').waitFor();const signed=await readQR(b);
-  await merchant.setOffline(true);await m.reload();await m.getByRole('button',{name:'Scan existing receipt'}).waitFor();
+  await setDisconnected(true);await m.close(); m=await merchant.newPage(); await m.goto(origin);await m.getByRole('button',{name:'Scan existing receipt'}).waitFor();
   // Inject a camera stream from the buyer's actual QR image; both contexts remain isolated.
   const png=await b.locator('#qr').evaluate(c=>c.toDataURL());
   await m.evaluate(async url=>{
@@ -46,7 +69,7 @@ try{
   await m.getByRole('button',{name:'Scan existing receipt'}).click();await m.getByText('Payment accepted',{exact:true}).waitFor({timeout:25000});
   await m.getByRole('button',{name:'New sale'}).click();await m.getByRole('button',{name:'Scan existing receipt'}).click();
   await m.getByText('Already used',{exact:true}).waitFor({timeout:25000});
-  await merchant.setOffline(false);await m.getByRole('button',{name:'Sales',exact:true}).click();
+  await setDisconnected(false);await m.getByRole('button',{name:'Sales',exact:true}).click();
   await m.getByRole('button',{name:'Check against Arc'}).click();await m.getByText('confirmed',{exact:true}).waitFor();
   assert.ok(JSON.parse(signed).signature);console.log('Passed: actual QR pixels, payment, offline restart, camera handoff, replay refusal, and reconciliation');
-}finally{await browser?.close();try{process.kill(-child.pid,'SIGTERM');}catch{}}
+}finally{await browser?.close();gateway.closeAllConnections();gateway.close();try{process.kill(-child.pid,'SIGTERM');}catch{}}
