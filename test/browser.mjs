@@ -13,11 +13,12 @@ try{
   const m=await merchant.newPage(),b=await buyer.newPage();
   m.on('pageerror', error => console.error('Merchant page:', error.message));
   b.on('pageerror', error => console.error('Buyer page:', error.message));
-  await m.goto(origin);await m.getByLabel('Vendor wallet').fill('0x0000000000000000000000000000000000000011');
+  await m.goto(origin);
   await m.evaluate(() => navigator.serviceWorker.ready);
   await m.waitForFunction(() => navigator.serviceWorker.controller !== null);
   await merchant.setOffline(true);
   await m.reload();
+  await m.getByLabel('Vendor wallet').fill('0x0000000000000000000000000000000000000011');
   await m.getByLabel('Amount in test USDC').fill('1');await m.getByRole('button',{name:'Create order'}).click();
   await m.locator('#qr:not([hidden])').waitFor();
   // Read the displayed QR pixels, as opposed to copying a wallet request from browser storage.
