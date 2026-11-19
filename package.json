@@ -8,12 +8,17 @@
     "spike": "node scripts/spike.mjs",
     "compile": "node scripts/compile.mjs",
     "start": "node server/start.mjs",
-    "deploy": "node scripts/deploy.mjs"
+    "deploy": "node scripts/deploy.mjs",
+    "build": "node scripts/build.mjs",
+    "keygen": "node scripts/keygen.mjs"
   },
   "dependencies": {
     "@ethereumjs/trie": "6.2.1",
     "@noble/curves": "1.9.7",
-    "ethers": "6.15.0"
+    "ethers": "6.15.0",
+    "qrcode": "1.5.4",
+    "jsqr": "1.4.0",
+    "esbuild": "0.25.12"
   },
   "devDependencies": {
     "solc": "0.8.30",
