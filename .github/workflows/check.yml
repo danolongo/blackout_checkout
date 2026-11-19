@@ -16,6 +16,7 @@ jobs:
           node-version: 22
       - run: if test -f package-lock.json; then npm ci; else npm install; fi
       - run: npm test
+      - run: node scripts/deploy.mjs --prepare
       - name: Probe public Arc testnet independently of offline tests
         continue-on-error: true
         run: npm run spike

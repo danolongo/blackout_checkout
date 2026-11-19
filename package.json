@@ -5,11 +5,18 @@
   "version": "0.1.0",
   "scripts": {
     "test": "node --test test/*.test.mjs",
-    "spike": "node scripts/spike.mjs"
+    "spike": "node scripts/spike.mjs",
+    "compile": "node scripts/compile.mjs",
+    "start": "node server/start.mjs",
+    "deploy": "node scripts/deploy.mjs"
   },
   "dependencies": {
     "@ethereumjs/trie": "6.2.1",
     "@noble/curves": "1.9.7",
     "ethers": "6.15.0"
+  },
+  "devDependencies": {
+    "solc": "0.8.30",
+    "ganache": "7.9.2"
   }
 }
