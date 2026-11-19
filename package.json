@@ -1,0 +1,15 @@
+{
+  "name": "blackout-checkout",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "spike": "node scripts/spike.mjs"
+  },
+  "dependencies": {
+    "@ethereumjs/trie": "6.2.1",
+    "@noble/curves": "1.9.7",
+    "ethers": "6.15.0"
+  }
+}
