@@ -10,6 +10,17 @@ In Merchant mode enter your vendor wallet address and the amount. Use Customer m
 
 For two iPhones, put the site behind trusted HTTPS, including when it runs on your home network. Both phones need the same origin. The rehearsal RPC is proxied through the site. Only expose rehearsal funding to your own devices. Turn WiFi off on the merchant phone after the app is cached. Confirm the site can quit, reopen, create a new order, and reject a reused receipt without network access.
 
+## Finish the fixed Arc demo purchase
+
+The two signed transactions in `fixtures/demo-sale.json` authorize one deployment and one payment of 0.01 test USDC. Every retry uses the same wallet, contract and purchase. Only use this address on Arc Testnet. The signing key was discarded. Any excess faucet tokens stay in this test wallet.
+
+1. Fund `0x085e389ff545379035D2774374f91602E9d774B5` on Arc Testnet with at least 0.072 test USDC total. [Circle faucet](https://faucet.circle.com/)
+2. Rerun the latest **Checkout checks** workflow on this branch, or run `node scripts/demo-sale.mjs` after installing dependencies. If the wallet is empty, the result says `awaiting funding`. A green workflow alone does not confirm a live purchase.
+3. Open `artifacts/live-sale.json` in the Chromium evidence download. The command reports `verified` only after both transactions succeeded and the finalized event matches the buyer, vendor, amount, order ID and compiled contract. The expected contract is `0x3bd12A4Cba4771F3B5c82375c19f53618b6b5418`. Use this address as `CHECKOUT_ADDRESS` only after verification.
+4. For subsequent purchases, start the app with that contract and a persistent relay signing key as described below. The fixed demonstration is a single purchase. Each new browser order has its own ID and uses the customer's funded wallet.
+
+Run `node scripts/demo-sale.mjs --rehearse` to test the fixed transaction pair and a repeat run on a disposable chain. [Review and phone checks](docs/REVIEW.md)
+
 ## Use Arc Testnet
 
 Run `npm run compile`. Use a dedicated faucet funded test wallet and set `ARC_TESTNET_KEY` in your shell. Run `npm run deploy` and save its deployment hash and address. Set `CHECKOUT_ADDRESS` to that address. Run `npm run keygen` once to create a private relay signing key. Keep this file and all signing secrets outside Git. Run `npm run build && npm start`. For a hosted relay, store the private JWK as a secret named `RELAY_PRIVATE_JWK`. Keep the same public key for the life of each open sale. A private upstream RPC URL belongs in `ARC_RPC`; `PUBLIC_ARC_RPC` must be safe for the browser.
