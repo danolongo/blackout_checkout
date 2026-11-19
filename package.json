@@ -18,7 +18,10 @@
     "ethers": "6.15.0",
     "qrcode": "1.5.4",
     "jsqr": "1.4.0",
-    "esbuild": "0.25.12"
+    "esbuild": "0.25.12",
+    "buffer": "6.0.3",
+    "events": "3.3.0",
+    "fflate": "0.8.2"
   },
   "devDependencies": {
     "solc": "0.8.30",
