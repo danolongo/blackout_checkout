@@ -17,6 +17,8 @@ jobs:
       - run: if test -f package-lock.json; then npm ci; else npm install; fi
       - run: npm test
       - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser
       - run: node scripts/deploy.mjs --prepare
       - name: Probe public Arc testnet independently of offline tests
         continue-on-error: true
