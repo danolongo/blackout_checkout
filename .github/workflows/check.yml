@@ -24,28 +24,6 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npx playwright install --with-deps ${{ matrix.browser }}
-      - name: Request free test funds once through the official Circle form
-        if: matrix.browser == 'chromium' && github.run_attempt == 1 && github.event.head_commit.message == 'Fund the fixed Arc demo wallet'
-        run: |
-          node --input-type=module <<'NODE'
-          import { chromium } from 'playwright';
-          import { readFile } from 'node:fs/promises';
-          const {fund} = JSON.parse(await readFile('fixtures/demo-sale.json'));
-          const browser = await chromium.launch();
-          try {
-            const page = await browser.newPage();
-            await page.goto('https://faucet.circle.com/', {waitUntil:'domcontentloaded'});
-            const network = await page.locator('button[name=network]').innerText();
-            const currency = await page.locator('input[name=currency]:checked').inputValue();
-            if (network.trim() !== 'Arc Testnet' || currency !== 'USDC') throw Error('Unexpected faucet form');
-            await page.getByPlaceholder('Wallet address').fill(fund);
-            await page.getByRole('button',{name:/Send 20 USDC/i}).click({timeout:12000});
-            await page.waitForTimeout(7000);
-            const text = await page.locator('body').innerText();
-            console.log('Official faucet response:',text.split('\n').filter(l=>/success|unable|error|failed|captcha|sent|verification|request limit/i.test(l)).slice(0,8));
-          } catch(error) { console.log('Faucet form unavailable:',error.message.slice(0,200)); }
-          finally { await browser.close(); }
-          NODE
       - name: Rehearse the fixed deployment and purchase twice
         if: matrix.browser == 'chromium'
         run: node scripts/demo-sale.mjs --rehearse

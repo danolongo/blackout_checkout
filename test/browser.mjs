@@ -1,3 +1,5 @@
+import {build} from 'esbuild';
+import {readFile} from 'node:fs/promises';
 import http from 'node:http';
 import {spawn} from 'node:child_process';
 import {setTimeout as sleep} from 'node:timers/promises';
@@ -41,6 +43,19 @@ try{
   await setDisconnected(true);
   await m.close(); m=await merchant.newPage(); await m.goto(origin);
   assert.equal(await m.evaluate(async()=>{try{await fetch('/api/config',{cache:'no-store'});return true;}catch{return false;}}),false,'Merchant cannot reach the server');
+  const verifier = await build({
+    entryPoints:['src/proof.mjs'], write:false, bundle:true, inject:['web/shim.mjs'],
+    define:{'process.browser':'true','process.env.NODE_ENV':'"production"'},
+    format:'iife', globalName:'offlineProof', platform:'browser', target:'safari16'
+  });
+  await m.addScriptTag({content:verifier.outputFiles[0].text});
+  const fixture = JSON.parse(await readFile('test/fixtures/arc.json','utf8'));
+  const height = await m.evaluate(async ({proof,cert,snapshot}) => {
+    const verified = await window.offlineProof.verifyInclusion(proof,cert,snapshot);
+    return Number(verified.height);
+  },fixture);
+  assert.equal(height,73090654);
+  console.log('Offline browser verified the real historical Arc receipt at height',height);
   await m.getByLabel('Vendor wallet').fill('0x0000000000000000000000000000000000000011');
   await m.getByLabel('Amount in test USDC').fill('1');await m.getByRole('button',{name:'Create order'}).click();
   await m.locator('#qr:not([hidden])').waitFor();

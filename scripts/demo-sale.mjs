@@ -2,7 +2,7 @@ import './compile.mjs';
 import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
 import { setTimeout as delay } from 'node:timers/promises';
-import { Transaction, Wallet, getCreateAddress, parseEther, parseUnits, formatEther } from 'ethers';
+import { Transaction, getCreateAddress, parseEther, parseUnits, formatEther } from 'ethers';
 import { checkout, checkOrder } from '../src/payment.mjs';
 import { CHAIN } from '../src/proof.mjs';
 import { arcProvider, readFinalPayment } from '../server/chain.mjs';
@@ -13,16 +13,6 @@ const vendor = '0xC23bA7c7083A41a7389f40AA1eAe41083b32B3d6';
 const amount = parseEther('0.01');
 const fees = { chainId: CHAIN, type: 2, maxFeePerGas: parseUnits('100','gwei'), maxPriorityFeePerGas: parseUnits('1','gwei') };
 const payData = checkout.encodeFunctionData('pay', [vendor, orderId]);
-
-async function prepare() {
-  const signer = Wallet.createRandom();
-  const target = getCreateAddress({from: signer.address, nonce: 0});
-  const deployment = await signer.signTransaction({...fees, nonce: 0, gasLimit: 500000n, data: artifact.bytecode});
-  const purchase = await signer.signTransaction({...fees, nonce: 1, gasLimit: 120000n, to: target, data: payData, value: amount});
-  // These two authorizations are public. The private key is discarded.
-  const packet = {fund: signer.address, contract: target, deployment, purchase};
-  console.log('PUBLIC_DEMO_PACKET ' + JSON.stringify(packet));
-}
 
 async function execute(provider, packet) {
   assert.equal((await provider.getNetwork()).chainId, BigInt(CHAIN));
@@ -78,9 +68,7 @@ async function execute(provider, packet) {
   }
 }
 
-if (process.argv.includes('--prepare')) {
-  await prepare();
-} else {
+{
   const packet = JSON.parse(await readFile('fixtures/demo-sale.json'));
   let server;
   let provider;
