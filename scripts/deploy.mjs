@@ -1,7 +1,7 @@
 import './compile.mjs';
 import { Wallet, ContractFactory, getCreateAddress,parseUnits } from 'ethers';
 import { readFile,writeFile } from 'node:fs/promises';
-import { arcProvider } from '../server/chain.mjs';
+import { arcProvider,assertArc } from '../src/settlement.mjs';
 import { CHAIN } from '../src/proof.mjs';
 const c=JSON.parse(await readFile('artifacts/contract.json'));
 const provider=arcProvider(process.env.ARC_RPC);
@@ -14,10 +14,13 @@ if (process.argv.includes('--prepare')) {
   await writeFile('artifacts/deployment-request.json',JSON.stringify(item,null,2));
   console.log('Fund only with Arc TESTNET USDC:',w.address,'Target:',item.contract);
 } else {
-  if ((await provider.getNetwork()).chainId!==BigInt(CHAIN)) throw Error('Use Arc Testnet');
+  await assertArc(provider);
   if (!process.env.ARC_TESTNET_KEY) throw Error('Set a dedicated funded ARC_TESTNET_KEY or use --prepare');
   const signer=new Wallet(process.env.ARC_TESTNET_KEY,provider);
   const contract=await new ContractFactory(c.abi,c.bytecode,signer).deploy();
   await contract.waitForDeployment();
-  console.log('Contract:',await contract.getAddress(),'Deployment:',contract.deploymentTransaction().hash);
+  const deployment=contract.deploymentTransaction(), receipt=await deployment.wait();
+  const record={network:CHAIN,contract:await contract.getAddress(),transaction:deployment.hash,block:receipt.blockNumber};
+  await writeFile('artifacts/deployment.json',JSON.stringify(record,null,2));
+  console.log('Contract:',record.contract,'Deployment:',record.transaction,'Block:',record.block);
 }

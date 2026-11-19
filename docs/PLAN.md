@@ -248,7 +248,7 @@ Reconnect the merchant phone. Check each locally accepted receipt against Arc, s
 - [ ] Working deployed demo (customer page + vendor PWA)
 - [ ] Contract address on Arc Testnet + verified source
 - [ ] At least 3 real testnet tx hashes in the README
-- [ ] README: architecture, verification algorithm, trust model per tier, setup steps
+- [x] README: architecture, verification algorithm, trust model per tier, setup steps
 - [ ] 2–3 minute demo video (YouTube / Drive)
 - [ ] Written answers: problem, how it works, what's unique, next steps
 - [ ] Tech/sponsor list: Arc, native USDC, `arc_getCertificate`, (Circle wallets if used)

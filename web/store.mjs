@@ -13,14 +13,20 @@ export async function save(store,key,value){
   return new Promise((resolve,reject)=>{const t=db.transaction(store,'readwrite');t.objectStore(store).put(value,key);
     t.oncomplete=resolve;t.onerror=()=>reject(t.error);});
 }
-export async function consume(order,bundle){
+// Read, check and write inside one transaction so two scans or tabs cannot both change the same order.
+async function update(id,status,change,failure){
   const db=await opening;
   return new Promise((resolve,reject)=>{const t=db.transaction('orders','readwrite'),s=t.objectStore('orders');
-    const r=s.get(order.id);
-    r.onsuccess=()=>{if(!r.result||r.result.status!=='open'){t.abort();return;}
-      s.put({...r.result,status:'paid',bundle},order.id);};
-    t.oncomplete=resolve;t.onabort=()=>reject(Error('Order already used or unknown'));t.onerror=()=>reject(t.error);
+    const r=s.get(id);let next;
+    r.onsuccess=()=>{if(!r.result||r.result.status!==status){t.abort();return;}next={...r.result,...change};s.put(next,id);};
+    t.oncomplete=()=>resolve(next);t.onabort=()=>reject(Error(failure));t.onerror=()=>reject(t.error);
   });
+}
+export function consume(order,bundle,details={}){
+  return update(order.id,'open',{...details,status:'paid',bundle},'Order already used or unknown');
+}
+export function reconciled(id,reconciliation){
+  return update(id,'paid',{reconciliation},'Only accepted sales can be reconciled');
 }
 export async function allOrders(){
   const db=await opening;
