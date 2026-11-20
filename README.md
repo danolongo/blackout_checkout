@@ -5,17 +5,19 @@ Echo is an Arc Testnet checkout where a merchant and buyer exchange signed QR co
 ## System architecture
 
 ```mermaid
-flowchart LR
-    M[Merchant web app<br/>invoice and local queue] <-->|Invoice QR →<br/>← signed payment QR<br/>proof QR| B[Buyer iPhone app<br/>wallet and local queue]
-    M -->|Invoice or complete package| R[Matcher / relayer<br/>persistent queue]
-    B -->|Complete package| R
-    R -->|settle with both signatures| C[Arc checkout contract<br/>buyer escrow → merchant wallet]
-    C -->|receipt and OrderPaid| R
-    R -->|status and Arc proof| M
-    R -->|status and Arc proof| B
-    A[Arc public RPC and validator registry] -->|validator checkpoint| M
-    A -->|validator checkpoint| B
-    A -->|block certificate and receipts| R
+flowchart TB
+    M["Merchant web app<br/>Signs invoice · saves local order"]
+    B["Buyer iPhone app<br/>Verifies invoice · signs payment"]
+    Q["Both devices hold the signed package<br/>QR handoff works offline"]
+    R["Matcher / relayer<br/>Persistent queue · submits transaction"]
+    C["Arc checkout contract<br/>Checks signatures · pays merchant from buyer escrow"]
+    P["Settlement proof<br/>Arc certificate + receipt · offline QR verification"]
+
+    M -->|Invoice QR| B
+    B -->|Return QR| Q
+    Q -->|Either device reconnects| R
+    R -->|Settle| C
+    C -->|Confirmed receipt| P
 ```
 
 The merchant app signs invoices and saves sales in browser storage. The buyer app keeps its wallet in iOS Keychain and saves signed orders on the phone. Both cache the checkout configuration and an Arc validator checkpoint while online. The QR exchange itself needs no network connection.
