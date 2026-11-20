@@ -76,10 +76,17 @@ struct BuyerView: View {
     Button(action:perform) { VStack(spacing:8) {CircleIcon(symbol:symbol);Text(title).font(.custom("Inter",size:13).weight(.medium))}.frame(maxWidth:.infinity) }.buttonStyle(.plain)
   }
   private var bottomBar:some View {
-    HStack {Button {m.screen = .home} label:{VStack(spacing:4){Image(systemName:"house").font(.custom("Inter",size:23));Text("Home").font(.custom("Inter",size:11))}.frame(width:64)};Spacer()
-      Button {m.showingScanner=true} label:{Image(systemName:"viewfinder").font(.custom("Inter",size:26)).foregroundStyle(C.bg).frame(width:56,height:56).background(C.fg,in:Circle())}.offset(y:-17)
-      Spacer();Button {m.screen = .activity} label:{VStack(spacing:4){Image(systemName:"waveform.path.ecg").font(.custom("Inter",size:23));Text("Activity").font(.custom("Inter",size:11))}.frame(width:64).foregroundStyle(m.screen == .activity ? C.fg : C.muted)}
-    }.padding(.horizontal,28).padding(.top,12).frame(height:65,alignment:.top).background(C.bg).overlay(alignment:.top){C.border.frame(height:1)}
+    HStack(alignment:.center) {
+      Button {m.screen = .home} label:{VStack(spacing:4){Image(systemName:"house").font(.custom("Inter",size:23));Text("Home").font(.custom("Inter",size:11))}.frame(width:64)}
+      Spacer()
+      Button {m.showingScanner=true} label:{Image(systemName:"viewfinder").font(.custom("Inter",size:26)).foregroundStyle(C.bg).frame(width:56,height:56).background(C.fg,in:Circle())}.accessibilityLabel("Scan to pay")
+      Spacer()
+      Button {m.screen = .activity} label:{VStack(spacing:4){Image(systemName:"waveform.path.ecg").font(.custom("Inter",size:23));Text("Activity").font(.custom("Inter",size:11))}.frame(width:64).foregroundStyle(m.screen == .activity ? C.fg : C.muted)}
+    }
+    .padding(.horizontal,28)
+    .frame(height:74)
+    .background(C.bg)
+    .overlay(alignment:.top){C.border.frame(height:1)}
   }
   private func orderRow(_ order:Order)->some View {
     HStack(spacing:14) {Avatar(text:"GC");VStack(alignment:.leading,spacing:2){Text(short(order.send.vendor)).font(.custom("Inter",size:15).weight(.medium));Text(order.created,style:.date).font(.custom("Inter",size:13)).foregroundStyle(C.muted)};Spacer();VStack(alignment:.trailing,spacing:2){Text("−"+CheckoutModel.money(order.send.amount)).font(.custom("Inter",size:15).weight(.medium));Text(order.status == "settled" ? "Verified" : "Pending").font(.custom("Inter",size:12)).foregroundStyle(C.muted)}}.padding(.vertical,14)
