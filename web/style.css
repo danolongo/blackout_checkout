@@ -1,1 +1,32 @@
-*{box-sizing:border-box}body{margin:0;background:#edf1e9;color:#112e22;font:17px/1.5 system-ui,sans-serif}header{background:#10291f;color:#e4fb91;display:flex;align-items:center;justify-content:space-between;padding:18px max(5vw,18px)}.brand{font-size:25px;letter-spacing:-1.6px}.brand b{font-weight:450}#network{font:12px ui-monospace,monospace}main{max-width:550px;margin:30px auto;padding:0 18px 55px}nav{display:flex;gap:6px;border-bottom:1px solid #b1c0ac;padding-bottom:15px}button{font:inherit;border:0;border-radius:7px;padding:11px 16px;background:#163e2e;color:white;cursor:pointer}nav button{background:transparent;color:#264a39}nav button[aria-current=true]{background:#d1decb}button:disabled{opacity:.48}h1{font-size:clamp(34px,7vw,54px);line-height:1.04;letter-spacing:-2px;margin:30px 0 22px}label{display:block;margin:14px 0 6px;font-weight:600}input,textarea{font:inherit;display:block;width:100%;padding:10px 12px;border:1px solid #849b85;border-radius:6px;background:#fff;margin-bottom:13px}code{overflow-wrap:anywhere;font-size:.85em}#status{white-space:pre-line}#status[data-error=true]{color:#9c311d}canvas,video{max-width:100%;background:white;border-radius:8px}#content button{margin:4px 6px 5px 0}#qr{display:block;margin:12px auto}#qr[hidden]{display:none}video{width:100%}small{display:block;color:#47614e}article{border-top:1px solid #bdcbbb;padding:12px 0}a{color:#19543d}
+:root{font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#122e22;background:#edf1e9;font-synthesis:none}
+*{box-sizing:border-box}
+body{margin:0;font-size:16px;line-height:1.5}
+header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px max(5vw,20px);background:#10291f;color:#eff7e9}
+.brand{font-size:24px;font-weight:600;letter-spacing:-1.4px}.brand b{font-weight:350}
+#network{font:12px ui-monospace,SFMono-Regular,monospace;color:#b9d5bd}
+main{max-width:580px;margin:0 auto;padding:28px 18px 70px}
+nav{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;padding:5px;background:#dfe8dc;border-radius:12px}
+nav button{padding:10px 6px;background:transparent;color:#31533c;box-shadow:none}
+nav button[aria-current=true]{background:#fff;color:#153926;box-shadow:0 1px 4px #163e2e16}
+h1{font-size:clamp(34px,7vw,50px);letter-spacing:-2px;line-height:1.08;margin:30px 0 22px}
+#content p{margin:12px 0;color:#35503e}
+#content>p:first-child{font-weight:600;color:#173927}
+button{font:inherit;font-weight:600;border:0;border-radius:10px;padding:12px 16px;cursor:pointer;transition:transform .15s ease,background .15s ease}
+button:hover{transform:translateY(-1px)}button:active{transform:translateY(0)}button:disabled{opacity:.5;cursor:wait}
+#content>button{margin:7px 8px 7px 0;background:#e0eadc;color:#183c2a}
+#content>button:first-of-type{background:#163e2e;color:#fff}
+button:focus-visible,input:focus-visible,summary:focus-visible,a:focus-visible{outline:3px solid #e3a04c;outline-offset:3px}
+label{display:block;margin:20px 0 7px;font-weight:650}
+input{font:inherit;display:block;width:100%;padding:12px 13px;border:1px solid #9bae9a;border-radius:9px;background:#fff;color:#122e22}
+code{display:block;overflow-wrap:anywhere;font:13px/1.55 ui-monospace,SFMono-Regular,monospace;color:#224735;background:#f7faf5;border:1px solid #d2dfd1;border-radius:8px;padding:10px}
+#status{min-height:24px;margin:16px 0;color:#1c5a37;white-space:pre-line;font-weight:600}
+#status[data-error=true]{color:#a53126}
+canvas,video{max-width:100%;background:#fff;border-radius:10px}#qr{display:block;margin:18px auto;box-shadow:0 5px 24px #13372517}#qr[hidden]{display:none}
+video{width:100%;margin:12px 0}#stop{background:#e0eadc;color:#183c2a}
+article{margin:16px 0 4px;padding:16px;background:#f8faf7;border:1px solid #d1ddcf;border-radius:12px}
+article strong{display:block;font-size:18px}small{display:block;color:#3f5c48;margin-top:5px;overflow-wrap:anywhere}
+a{display:inline-block;color:#19543d;text-underline-offset:3px}article a{margin-top:8px}
+details{margin:26px 0 0;padding:14px 16px;border-top:1px solid #c6d5c3}summary{cursor:pointer;font-weight:650}
+details input{margin:12px 0}details button{background:#e0eadc;color:#183c2a;margin:8px 8px 0 0}
+@media(max-width:420px){main{padding:20px 16px 60px}h1{margin-top:25px}#content>button{width:100%;margin:6px 0}}
+@media(prefers-reduced-motion:reduce){button{transition:none}}

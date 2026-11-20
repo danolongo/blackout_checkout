@@ -1,10 +1,10 @@
 import './compile.mjs';
 import { Wallet, ContractFactory } from 'ethers';
 import { readFile } from 'node:fs/promises';
-import { arcProvider } from '../server/chain.mjs';
-import { CHAIN } from '../src/proof.mjs';
+import { JsonRpcProvider } from 'ethers';
+import { CHAIN } from '../src/intents.mjs';
 const c=JSON.parse(await readFile('artifacts/contract.json'));
-const provider=arcProvider(process.env.ARC_RPC);
+const provider=new JsonRpcProvider(process.env.ARC_RPC||'https://rpc.testnet.arc.io',undefined,{batchMaxCount:1});
 if ((await provider.getNetwork()).chainId!==BigInt(CHAIN)) throw Error('Use Arc Testnet');
 if (!process.env.ARC_TESTNET_KEY) throw Error('Set a dedicated funded ARC_TESTNET_KEY');
 const signer=new Wallet(process.env.ARC_TESTNET_KEY,provider);
