@@ -37,7 +37,8 @@ await matcher.load();
 matcher.process().catch(console.error);
 setInterval(()=>matcher.process().catch(console.error),10000).unref();
 const assets={'/':['index.html','text/html'],'/app.js':['app.js','text/javascript'],
-  '/sw.js':['sw.js','text/javascript'],'/style.css':['style.css','text/css']};
+  '/sw.js':['sw.js','text/javascript'],'/style.css':['style.css','text/css'],
+  '/echo-mark.svg':['echo-mark.svg','image/svg+xml']};
 function json(res,status,value){res.writeHead(status,{'content-type':'application/json','cache-control':'no-store'});res.end(JSON.stringify(value));}
 function sameOrigin(req){
   // Native clients do not send Origin. Browser requests do, so keep the
@@ -102,4 +103,4 @@ createServer(async(req,res)=>{
     res.writeHead(200,{'content-type':asset[1],'cache-control':'no-cache','x-content-type-options':'nosniff',
       'referrer-policy':'no-referrer'});res.end(bytes);
   }catch(error){json(res,422,{error:error.shortMessage||error.message});}
-}).listen(port,host,()=>console.log('Blackout Checkout matcher listening on '+host+':'+port));
+}).listen(port,host,()=>console.log('Echo matcher listening on '+host+':'+port));

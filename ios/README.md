@@ -1,4 +1,4 @@
-# Blackout buyer for iPhone
+# Echo buyer for iPhone
 
 Open `BlackoutBuyer.xcodeproj` in Xcode, choose your iPhone and personal signing team, then Run. The app defaults to `https://blackout-next.64-177-121-208.sslip.io`. Open it online once to cache the contract and validator checkpoint. The matcher runs on a separate Vultr server, so the Mac can go offline during the demo.
 

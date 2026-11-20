@@ -1,6 +1,6 @@
-# Blackout Checkout
+# Echo
 
-Blackout Checkout is an Arc Testnet checkout where the merchant web app and buyer iPhone app can both be offline during the QR handoff. The merchant signs an invoice QR; the buyer checks it, signs the same terms, and returns one QR containing both signatures. Each device then has the complete payment package. Whichever reconnects first uploads it to the always-on matcher, which settles prepaid native test USDC from the buyer's Arc escrow to the merchant on chain.
+Echo is an Arc Testnet checkout where the merchant web app and buyer iPhone app can both be offline during the QR handoff. The merchant signs an invoice QR; the buyer checks it, signs the same terms, and returns one QR containing both signatures. Each device then has the complete payment package. Whichever reconnects first uploads it to the always-on matcher, which settles prepaid native test USDC from the buyer's Arc escrow to the merchant on chain.
 
 **A signed QR is pending, not paid.** After settlement, the online device displays an animated proof QR. The offline device reconstructs the proof and checks Arc validator precommits, receipt inclusion, and the exact `OrderPaid` event before showing Completed. A transaction hash alone is never treated as offline proof. If the buyer's escrow is too low when settlement runs, the order stays pending. The [queued payment option](OFFLINE_PAYMENT_PLAN.md) without escrow is a future plan.
 
