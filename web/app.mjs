@@ -7,6 +7,8 @@ import {arcProvider,assertArc,txUrl} from '../src/settlement.mjs';
 import {reconcileSale} from '../src/reconcile.mjs';
 import {get,save,consume,reconciled,allOrders} from './store.mjs';
 
+// Arc RPC and checkout bytecode hash, fixed at build time (scripts/build.mjs), not taken from the relay.
+const ARC=__ARC__;
 const $=id=>document.getElementById(id), box=$('content'), qr=$('qr');
 let config,order,stream,mode='merchant',scanner=0,busy=false,cacheReady=false,syncing=null;
 function notice(t,error=false){$('status').textContent=t;$('status').dataset.error=String(error);}
@@ -69,7 +71,7 @@ async function customer(o){
   view(o?'Review order':'Customer wallet','customer');order=o;
   if(!config)throw Error('Reconnect to prepare the customer wallet');
   let key=await get('settings','testKey');if(!key){key=Wallet.createRandom().privateKey;await save('settings','testKey',key);}
-  const provider=arcProvider(config.rpc), wallet=new Wallet(key,provider);
+  const provider=arcProvider(ARC.rpc), wallet=new Wallet(key,provider);
   const address=el('code',wallet.address);box.append(el('small','Your testnet wallet'),address);
   const faucet=el('a','Fund with test USDC');faucet.href='https://faucet.circle.com';faucet.target='_blank';faucet.rel='noopener';box.append(el('p',''),faucet);
   if(!o){button('Scan order',()=>scan(t=>customer(parseOrder(t))));return;}
@@ -101,22 +103,14 @@ const stateOf=o=>o.status==='paid'?o.reconciliation?.state||'unchecked':o.expire
 const when=t=>new Date(t).toLocaleString();
 function field(list,name,value){if(value==null)return;const row=el('div','');row.append(el('dt',name));
   const d=el('dd','');d.append(value instanceof Node?value:document.createTextNode(String(value)));row.append(d);list.append(row);}
-// The cached checkout config predates the code hash; accept it from the relay only for the same pinned trust root.
-async function checkoutCode(){
-  if(config.codeHash)return config.codeHash;
-  const fresh=await api('/api/config');
-  if(fresh.chain!==config.chain||getAddress(fresh.contract)!==getAddress(config.contract)||
-    fresh.relayKey.x!==config.relayKey.x||fresh.relayKey.y!==config.relayKey.y)throw Error('Relay configuration changed. Set up this register again.');
-  config={...config,codeHash:fresh.codeHash};await save('settings','config',config);return config.codeHash;
-}
 // Rechecks every accepted sale against Arc directly, independent of the relay that signed the receipts.
 function reconcileAll(only){
   syncing??=(async()=>{
     const all=await allOrders(),paid=all.filter(o=>o.status==='paid'&&(!only||o.id===only));
     if(!paid.length)return 0;
-    const provider=arcProvider(config.rpc,15000),code=await checkoutCode();
+    const provider=arcProvider(ARC.rpc,15000);
     for(const o of paid){
-      await reconciled(o.id,await reconcileSale(provider,o,code));
+      await reconciled(o.id,await reconcileSale(provider,o,ARC.codeHash));
     }
     return paid.length;
   })().finally(()=>{syncing=null;});

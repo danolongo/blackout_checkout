@@ -21,7 +21,7 @@ createServer(async(req,res)=>{
   try{
     const path=new URL(req.url,'http://localhost').pathname;
     if(req.method!=='GET')return json(res,405,{error:'Use GET'});
-    if(path==='/api/config')return json(res,200,{chain:CHAIN,contract,relayKey:pub,mode:'relay',codeHash,rpc:process.env.PUBLIC_ARC_RPC||RPC});
+    if(path==='/api/config')return json(res,200,{chain:CHAIN,contract,relayKey:pub,mode:'relay'});
     if(/^\/api\/receipt\/0x[\da-fA-F]{64}$/.test(path)){
       const receipt=await readFinalPayment(provider,contract,path.split('/').pop(),codeHash);
       check(receipt,'Awaiting finality');

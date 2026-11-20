@@ -1,8 +1,13 @@
 import {build} from 'esbuild';
 import {mkdir,writeFile,copyFile,readFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
+import {keccak256} from 'ethers';
+import {RPC} from '../src/settlement.mjs';
+import './compile.mjs';
 await mkdir('dist',{recursive:true});
-await build({entryPoints:['web/app.mjs'],outfile:'dist/app.js',bundle:true,inject:['web/shim.mjs'],define:{'process.browser':'true','process.env.NODE_ENV':'"production"'},minify:true,format:'esm',platform:'browser',target:['safari16']});
+// Pinned into the register so reconciliation never trusts an RPC or bytecode the relay hands out.
+const arc={rpc:process.env.PUBLIC_ARC_RPC||RPC,codeHash:keccak256(JSON.parse(await readFile('artifacts/contract.json')).runtime)};
+await build({entryPoints:['web/app.mjs'],outfile:'dist/app.js',bundle:true,inject:['web/shim.mjs'],define:{'process.browser':'true','process.env.NODE_ENV':'"production"','__ARC__':JSON.stringify(arc)},minify:true,format:'esm',platform:'browser',target:['safari16']});
 const assets=['/','/app.js','/style.css'];
 await Promise.all(['index.html','style.css'].map(f=>copyFile('web/'+f,'dist/'+f)));
 const hash=createHash('sha256');

@@ -53,7 +53,7 @@ The full plan, demo script and risk register are in [docs/PLAN.md](docs/PLAN.md)
 
 | Mode | What the register checks offline | Trust assumption | State in this build |
 |---|---|---|---|
-| **Relay confirmed** (Tier B) | A P-256 signature from the pinned relay key over version, mode, chain, contract, vendor, order, amount, payer, tx hash, block hash, height, timestamp and log index | The relay read Arc honestly. Reconciliation catches a relay that did not. | **Used by the register UI.** Every sale is labelled "Relay confirmed". |
+| **Relay confirmed** (Tier B) | A P-256 signature from the pinned relay key over version, mode, chain, contract, vendor, order, amount, payer, tx hash, block hash, height, timestamp and log index | The relay signs only payments it read from Arc. Reconciliation catches a leaked relay key or a relay that signed something Arc does not show. | **Used by the register UI.** Every sale is labelled "Relay confirmed". |
 | **Arc finality proof** (Tier A) | More than ⅔ of the voting power across distinct validators signing Arc precommits, the header hash equal to the certified block hash, then the receipt in that header's receipts trie | A pinned validator snapshot valid for the certified height | Verified offline in tests against a real Arc Testnet block. Not yet offered in the register UI. |
 
 The Tier A check replays Arc Testnet block `73090654` (tx `0x321e2376e51675d063c92b89d67f243d376e3afc5a2b1074906e5655fdd53be6`; 14 of 20 validators signed). The proof is about 4.8 KB of JSON, which is too big for a single QR, so the demo uses Relay confirmed. Its validator snapshot was read from Arc's RPC for that test; production needs an independently sourced checkpoint.
@@ -68,13 +68,15 @@ The Tier A check replays Arc Testnet block `73090654` (tx `0x321e2376e51675d063c
 
 ## Reconciliation
 
-When the register comes back online, it rechecks every paid sale. It does this on the `online` event, at app start and after each accepted sale, and the cashier can also tap **Check against Arc** on any sale. It queries Arc's RPC directly rather than asking the relay, so a compromised relay key shows up here.
+When the register comes back online, it rechecks every paid sale. It does this on the `online` event, at app start and after each accepted sale, and the cashier can also tap **Check against Arc** on any sale. It queries Arc directly rather than asking the relay. The RPC URL and the checkout bytecode hash are fixed into the app at build time, so the relay's runtime config cannot redirect the check.
+
+The limit: the relay host also serves the register's code. Whoever controls that host can ship a different app, which no in-app check can rule out. Reconciliation protects against a stolen or misused relay key, not against whoever deploys the app.
 
 For each sale it re-reads the transaction from Arc and requires:
 
 - the RPC reports chain `5042002`
 - the transaction exists and succeeded
-- the checkout contract's bytecode hash matches the pinned `codeHash`
+- the checkout contract's bytecode hash matches the hash built into the app from `contracts/BlackoutCheckout.sol`
 - exactly one `OrderPaid` event comes from the checkout contract
 - Arc's chain, contract, vendor, order ID and amount equal the stored order
 - each signed receipt field (chain, contract, vendor, order ID, amount, payer, tx hash, block hash, height, time, log index) equals Arc's value
@@ -126,7 +128,7 @@ CHECKOUT_ADDRESS=0x... npm start
 
 Serve it over HTTPS (e.g. a reverse proxy or tunnel to port `4173`). iPhones need a secure context for the camera and the service worker. Open the site once online on the vendor phone so the register and its trust settings are cached. After that it works in airplane mode.
 
-Optional settings: `ARC_RPC` (RPC the relay reads), `PUBLIC_ARC_RPC` (RPC the browser uses), `PORT`, and `RELAY_PRIVATE_JWK` (in place of `.env.relay`).
+Optional settings: `ARC_RPC` (RPC the relay reads), `PORT`, and `RELAY_PRIVATE_JWK` (in place of `.env.relay`). `PUBLIC_ARC_RPC` is read by `npm run build`, not at runtime: it sets the RPC the browser uses and defaults to the public Arc Testnet RPC. Rebuild after changing it or the contract source.
 
 ## Testnet evidence
 
