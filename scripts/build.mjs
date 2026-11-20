@@ -15,6 +15,17 @@ self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise
 self.addEventListener('fetch',e=>{
   const u=new URL(e.request.url);
   if(e.request.method!=='GET'||u.origin!==self.location.origin||u.pathname.startsWith('/api/'))return;
-  if(e.request.mode==='navigate')e.respondWith(caches.open(cacheName).then(c=>c.match('/')).then(r=>r||fetch(e.request)));
-  else e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));
+  const key=e.request.mode==='navigate'?'/':e.request;
+  e.respondWith((async()=>{
+    const cache=await caches.open(cacheName);
+    try{
+      const response=await fetch(e.request);
+      if(response.ok)await cache.put(key,response.clone());
+      return response;
+    }catch{
+      const cached=await cache.match(key);
+      if(cached)return cached;
+      throw Error('Offline asset unavailable');
+    }
+  })());
 });`);

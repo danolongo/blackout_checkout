@@ -13,7 +13,7 @@ private enum C {
 private struct CircleIcon: View {
   let symbol:String
   var size:CGFloat=52
-  var body:some View { Image(systemName:symbol).font(.custom("Inter",size:22).weight(.regular)).frame(width:size,height:size).background(C.surface,in:RoundedRectangle(cornerRadius:10)).overlay(RoundedRectangle(cornerRadius:10).stroke(C.border)) }
+  var body:some View { Image(systemName:symbol).font(.custom("Inter",size:22).weight(.regular)).frame(width:size,height:size).background(C.surface,in:RoundedRectangle(cornerRadius:6)).overlay(RoundedRectangle(cornerRadius:6).stroke(C.border)) }
 }
 private struct Avatar: View {
   let text:String
@@ -66,9 +66,9 @@ struct BuyerView: View {
     VStack(alignment:.leading,spacing:0) {
       HStack(spacing:10) {
         EchoMark(size:36)
-        VStack(alignment:.leading,spacing:2) { Text("Echo").font(.custom("Inter",size:16).weight(.semibold));Text("Ava Chen").font(.custom("Inter",size:12)).foregroundStyle(C.muted) }
+        VStack(alignment:.leading,spacing:2) { Text("Echo").font(.custom("Inter",size:16).weight(.semibold));Text("Laksh K.").font(.custom("Inter",size:12)).foregroundStyle(C.muted) }
         Spacer()
-        Button { m.showingSettings=true } label:{Image(systemName:"gearshape").font(.custom("Inter",size:19)).frame(width:40,height:40).overlay(RoundedRectangle(cornerRadius:8).stroke(C.border))}
+        Button { m.showingSettings=true } label:{Image(systemName:"gearshape").font(.custom("Inter",size:19)).frame(width:40,height:40).overlay(RoundedRectangle(cornerRadius:3).stroke(C.border))}
       }.padding(.top,8)
       Text("Available to pay").font(.custom("Inter",size:13).weight(.medium)).foregroundStyle(C.muted).padding(.top,32)
       HStack(alignment:.firstTextBaseline,spacing:10) {
@@ -99,7 +99,7 @@ struct BuyerView: View {
     HStack(alignment:.center) {
       Button {m.screen = .home} label:{VStack(spacing:4){Image(systemName:"house").font(.custom("Inter",size:23));Text("Home").font(.custom("Inter",size:11))}.frame(width:64)}
       Spacer()
-      Button {m.showingScanner=true} label:{Image(systemName:"viewfinder").font(.custom("Inter",size:26)).foregroundStyle(C.bg).frame(width:56,height:56).background(C.fg,in:RoundedRectangle(cornerRadius:12))}.accessibilityLabel("Scan to pay")
+      Button {m.showingScanner=true} label:{Image(systemName:"viewfinder").font(.custom("Inter",size:26)).foregroundStyle(C.bg).frame(width:56,height:56).background(C.fg,in:RoundedRectangle(cornerRadius:6))}.accessibilityLabel("Scan to pay")
       Spacer()
       Button {m.screen = .activity} label:{VStack(spacing:4){Image(systemName:"waveform.path.ecg").font(.custom("Inter",size:23));Text("Activity").font(.custom("Inter",size:11))}.frame(width:64).foregroundStyle(m.screen == .activity ? C.fg : C.muted)}
     }
@@ -113,14 +113,14 @@ struct BuyerView: View {
   }
   private var confirm:some View {
     VStack(spacing:0) {
-      HStack {Button {m.screen = .home} label:{Image(systemName:"xmark").font(.custom("Inter",size:18)).frame(width:40,height:40).overlay(RoundedRectangle(cornerRadius:8).stroke(C.border))};Spacer();Text("Review payment").font(.custom("Inter",size:16).weight(.semibold));Spacer();Color.clear.frame(width:40,height:40)}
+      HStack {Button {m.screen = .home} label:{Image(systemName:"xmark").font(.custom("Inter",size:18)).frame(width:40,height:40).overlay(RoundedRectangle(cornerRadius:3).stroke(C.border))};Spacer();Text("Review payment").font(.custom("Inter",size:16).weight(.semibold));Spacer();Color.clear.frame(width:40,height:40)}
       VStack(spacing:0) {Avatar(text:"GC",size:64);Text(m.pendingReceive?.merchantName ?? "Merchant").font(.custom("Inter",size:17).weight(.semibold)).padding(.top,14);Text(short(m.pendingReceive?.vendor ?? "")).font(.custom("Inter",size:13)).foregroundStyle(C.muted).padding(.top,2)
         Text(CheckoutModel.money(m.pendingReceive?.amount ?? "0")).font(.custom("Inter",size:72).weight(.semibold)).tracking(-3.2).padding(.top,24)
         Text("USDC").font(.custom("Inter",size:14)).foregroundStyle(C.muted).padding(.top,0)
       }.frame(maxWidth:.infinity).padding(.top,36)
-      VStack(spacing:0) {detail("Pay from","Escrow · \(CheckoutModel.money(m.balance))");detail("Network","Arc Testnet");detail("Invoice",short(m.pendingReceive?.id ?? ""))}.padding(.horizontal,18).background(Color(red:17/255,green:17/255,blue:19/255),in:RoundedRectangle(cornerRadius:8)).overlay(RoundedRectangle(cornerRadius:8).stroke(C.border)).padding(.top,32)
+      VStack(spacing:0) {detail("Pay from","Escrow · \(CheckoutModel.money(m.balance))");detail("Network","Arc Testnet");detail("Invoice",short(m.pendingReceive?.id ?? ""))}.padding(.horizontal,18).background(Color(red:17/255,green:17/255,blue:19/255),in:RoundedRectangle(cornerRadius:3)).overlay(RoundedRectangle(cornerRadius:3).stroke(C.border)).padding(.top,32)
       Spacer()
-      Button {Task {await m.authorize()}} label:{HStack(spacing:8){Image(systemName:"checkmark.shield");Text(m.busy ? "Signing…" : "Confirm payment")}.frame(maxWidth:.infinity).frame(height:54).background(C.fg,in:RoundedRectangle(cornerRadius:8)).foregroundStyle(C.bg).font(.custom("Inter",size:16).weight(.semibold))}.disabled(m.busy)
+      Button {Task {await m.authorize()}} label:{HStack(spacing:8){Image(systemName:"checkmark.shield");Text(m.busy ? "Signing…" : "Confirm payment")}.frame(maxWidth:.infinity).frame(height:54).background(C.fg,in:RoundedRectangle(cornerRadius:3)).foregroundStyle(C.bg).font(.custom("Inter",size:16).weight(.semibold))}.disabled(m.busy)
       Text("Scanning only reads the invoice. Confirm to sign; funds move after both sides reconnect.").font(.custom("Inter",size:13)).foregroundStyle(C.muted).multilineTextAlignment(.center).padding(.top,12)
     }.padding(.horizontal,24).padding(.top,8).padding(.bottom,24)
   }
@@ -128,15 +128,15 @@ struct BuyerView: View {
   private var proof:some View {
     VStack(spacing:0) {
       let order=m.orders.first(where:{$0.id == m.selectedOrderID}) ?? m.orders.first
-      HStack {Color.clear.frame(width:40,height:40);Spacer();Text(order?.uploaded == true ? "Payment sent" : "Payment queued").font(.custom("Inter",size:16).weight(.semibold));Spacer();Button {m.screen = .home} label:{Image(systemName:"xmark").font(.custom("Inter",size:18)).frame(width:40,height:40).overlay(RoundedRectangle(cornerRadius:8).stroke(C.border))}}
-      HStack(spacing:8){Image(systemName:order?.status == "settled" ? "checkmark" : "clock");Text(order?.status == "settled" ? "Confirmed on Arc" : "Pending settlement")}.font(.custom("Inter",size:13).weight(.medium)).foregroundStyle(order?.status == "settled" ? C.green : C.muted).padding(.horizontal,12).padding(.vertical,7).background(order?.status == "settled" ? Color(red:14/255,green:26/255,blue:19/255) : C.surface,in:RoundedRectangle(cornerRadius:5)).overlay(RoundedRectangle(cornerRadius:5).stroke(order?.status == "settled" ? Color(red:30/255,green:58/255,blue:42/255) : C.border)).padding(.top,32)
+      HStack {Color.clear.frame(width:40,height:40);Spacer();Text(order?.uploaded == true ? "Payment sent" : "Payment queued").font(.custom("Inter",size:16).weight(.semibold));Spacer();Button {m.screen = .home} label:{Image(systemName:"xmark").font(.custom("Inter",size:18)).frame(width:40,height:40).overlay(RoundedRectangle(cornerRadius:3).stroke(C.border))}}
+      HStack(spacing:8){Image(systemName:order?.status == "settled" ? "checkmark" : "clock");Text(order?.status == "settled" ? "Confirmed on Arc" : "Pending settlement")}.font(.custom("Inter",size:13).weight(.medium)).foregroundStyle(order?.status == "settled" ? C.green : C.muted).padding(.horizontal,12).padding(.vertical,7).background(order?.status == "settled" ? Color(red:14/255,green:26/255,blue:19/255) : C.surface,in:RoundedRectangle(cornerRadius:3)).overlay(RoundedRectangle(cornerRadius:3).stroke(order?.status == "settled" ? Color(red:30/255,green:58/255,blue:42/255) : C.border)).padding(.top,32)
       Text("Show this to the vendor").font(.custom("Inter",size:26).weight(.semibold)).tracking(-0.8).padding(.top,16)
       Text("They can scan your signed payment.").font(.custom("Inter",size:15)).foregroundStyle(C.muted).padding(.top,6)
-      if let order, let data=try? JSONEncoder().encode(order.send), let json=String(data:data,encoding:.utf8),let image=qr(json){Image(uiImage:image).interpolation(.none).resizable().frame(width:232,height:232).padding(18).background(C.fg,in:RoundedRectangle(cornerRadius:10)).padding(.top,26)}
+      if let order, let data=try? JSONEncoder().encode(order.send), let json=String(data:data,encoding:.utf8),let image=qr(json){Image(uiImage:image).interpolation(.none).resizable().frame(width:232,height:232).padding(18).background(C.fg,in:RoundedRectangle(cornerRadius:6)).padding(.top,26)}
       HStack(spacing:5){ForEach(0..<12,id:\.self){i in Capsule().fill(i<7 ? C.fg : Color(red:42/255,green:42/255,blue:47/255)).frame(width:18,height:4)}}.padding(.top,20)
       Text("Signed QR ready").font(.custom("Inter",size:13)).foregroundStyle(C.muted).padding(.top,10)
       Spacer()
-      Button {m.screen = .home} label:{Text("Done").frame(maxWidth:.infinity).frame(height:54).background(C.surface,in:RoundedRectangle(cornerRadius:8)).overlay(RoundedRectangle(cornerRadius:8).stroke(C.border)).font(.custom("Inter",size:16).weight(.semibold))}
+      Button {m.screen = .home} label:{Text("Done").frame(maxWidth:.infinity).frame(height:54).background(C.surface,in:RoundedRectangle(cornerRadius:3)).overlay(RoundedRectangle(cornerRadius:3).stroke(C.border)).font(.custom("Inter",size:16).weight(.semibold))}
     }.padding(.horizontal,24).padding(.top,8).padding(.bottom,24)
   }
   private var activity:some View {
