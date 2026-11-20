@@ -75,11 +75,14 @@ try{
   const png=await b.locator('#qr').evaluate(c=>c.toDataURL());
   await m.evaluate(async url=>{
     const img=new Image();img.src=url;await img.decode();
-    navigator.mediaDevices.getUserMedia=async()=>{
+    // Patch the prototype so WebKit can recreate the MediaDevices wrapper between scans.
+    window.cameraStarts=0;
+    Object.defineProperty(Object.getPrototypeOf(navigator.mediaDevices),'getUserMedia',{configurable:true,value:async()=>{
+      window.cameraStarts++;
       const c=document.createElement('canvas');c.width=512;c.height=512;const ctx=c.getContext('2d');
       const draw=()=>{ctx.fillStyle='white';ctx.fillRect(0,0,512,512);ctx.drawImage(img,28,28,456,456);};
       draw();const stream=c.captureStream(12);const timer=setInterval(()=>{if(stream.active)draw();else clearInterval(timer);},80);return stream;
-    };
+    }});
   },png);
   await m.getByRole('button',{name:'Scan existing receipt'}).click();await m.getByText('Payment accepted',{exact:true}).waitFor({timeout:25000});
   await m.getByRole('button',{name:'New sale'}).click();await m.getByRole('button',{name:'Scan existing receipt'}).click();
@@ -92,7 +95,8 @@ try{
     title:document.querySelector('#title')?.textContent,
     status:document.querySelector('#status')?.textContent,
     video:document.querySelector('video')?.readyState,
-    paused:document.querySelector('video')?.paused
+    paused:document.querySelector('video')?.paused,
+    cameraStarts:window.cameraStarts
   })).catch(()=>null));
   throw error;
 }finally{await browser?.close();gateway.closeAllConnections();gateway.close();try{process.kill(-child.pid,'SIGTERM');}catch{}}
