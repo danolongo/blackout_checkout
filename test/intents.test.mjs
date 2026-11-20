@@ -50,6 +50,7 @@ test('one complete package submits the payment and persists its Arc transaction'
   assert.equal((await matcher.submitPackage({v:2,kind:'payment',receive,send})).status,'matched');
   await matcher.process();assert.equal(matcher.status(intentKey(send)).status,'submitted');
   await matcher.process();assert.equal(matcher.status(intentKey(send)).status,'settled');
+  assert.equal((await matcher.submitPackage({v:2,kind:'payment',receive,send})).status,'settled');
   const persisted=JSON.parse(await readFile(file));assert.equal(persisted[intentKey(send)].status,'settled');
   await assert.rejects(matcher.submit({...send,amount:'2'}),/signature/);
 });

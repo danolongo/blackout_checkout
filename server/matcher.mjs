@@ -52,10 +52,10 @@ export class Matcher {
       const key=intentKey(payment.send),entry=this.entries[key]||{status:'waiting',updated:Date.now()};
       if(entry.status==='cancelled'||await this.contract.cancelled(await this.contract.orderKey(payment.send.vendor,payment.send.id)))
         throw Error('Invoice cancelled on Arc');
-      if(entry.status==='settled')return this.status(key);
       if(!this.entries[key]&&Object.keys(this.entries).length>=10000)throw Error('Matcher queue full');
       if(entry.receive&&JSON.stringify(entry.receive)!==JSON.stringify(payment.receive))throw Error('Conflicting invoice');
       if(entry.send&&JSON.stringify(entry.send)!==JSON.stringify(payment.send))throw Error('Conflicting customer payment');
+      if(entry.status==='settled')return this.status(key);
       entry.receive=payment.receive;entry.send=payment.send;
       entry.status=entry.txHash?'submitted':'matched';entry.updated=Date.now();
       this.entries[key]=entry;await this.persist();
