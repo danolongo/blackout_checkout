@@ -1,0 +1,11 @@
+node_modules/
+dist/
+artifacts/
+.env
+playwright-report/
+test-results/
+.env.*
+runtime/
+cache/
+.secrets/
+**/xcuserdata/

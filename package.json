@@ -1,0 +1,25 @@
+{
+  "name": "echo",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "compile": "node scripts/compile.mjs",
+    "start": "node server/start.mjs",
+    "deploy": "node scripts/deploy.mjs",
+    "build": "node scripts/build.mjs"
+  },
+  "dependencies": {
+    "ethers": "6.17.0",
+    "qrcode": "1.5.4",
+    "jsqr": "1.4.0",
+    "esbuild": "0.25.12"
+  },
+  "devDependencies": {
+    "solc": "0.8.30"
+  },
+  "overrides": {
+    "tmp": "0.2.7"
+  }
+}
