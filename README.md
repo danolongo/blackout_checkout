@@ -1,38 +1,19 @@
 # Blackout Checkout
 
-A register can accept a settled Arc Testnet USDC payment while disconnected. The buyer needs connectivity until the payment proof is downloaded. Use the plan in [docs/PLAN.md](docs/PLAN.md) for the four phases.
+Blackout Checkout lets a merchant create an Arc Testnet USDC order without a connection. The customer stays online to pay and obtain a receipt QR. The merchant scans it offline, records the sale once, and reconciles it when back online.
 
-## Run a complete rehearsal
+## Run
 
-Use Node 22. Run `npm install`, `npm run build`, then `npm run rehearse`. Open http://localhost:4173. This starts a local EVM, deploys the checkout and runs a relay. The banner says **Local rehearsal**. Balances and orders on this chain have no value. Restarting the rehearsal creates a fresh contract and relay key. Use a fresh browser profile or reset site data between sessions.
+Use Node 22 or newer. Run `npm install`, `npm run compile`, and `npm run build`. Set `CHECKOUT_ADDRESS` to the deployed contract address, then run `npm start`. If `.env.relay` does not exist, run `npm run keygen` once before starting. Keep that file and all wallet keys private. The site starts at `http://localhost:4173`; phones need a trusted HTTPS origin they can both reach.
 
-In Merchant mode enter your vendor wallet address and the amount. Use Customer mode in a second browser profile to fund the generated test wallet with **Fund rehearsal wallet**. Scan the order, pay and wait for the proof. Scan the receipt on the merchant screen. The register stores the completed sale even if it restarts. Under **Sales**, reconnect and choose **Check against Arc** to compare the saved receipt to the chain. A temporary connection failure leaves the sale retryable.
+The existing Arc Testnet contract is `0x3bd12A4Cba4771F3B5c82375c19f53618b6b5418`. A scripted 0.01 test USDC purchase succeeded in [transaction `0xba818f8a…34bf0c`](https://explorer.testnet.arc.io/tx/0xba818f8a8a4a14dcfc3680b76f71116a40f85c51eb24a104640086cc4e34bf0c). This was not a two phone purchase.
 
-For two iPhones, put the site behind trusted HTTPS, including when it runs on your home network. Both phones need the same origin. The rehearsal RPC is proxied through the site. Only expose rehearsal funding to your own devices. Turn WiFi off on the merchant phone after the app is cached. Confirm the site can quit, reopen, create a new order, and reject a reused receipt without network access.
+To deploy your own contract, fund a dedicated Arc Testnet wallet, set `ARC_TESTNET_KEY` in your shell, and run `npm run deploy`. Use the returned contract address as `CHECKOUT_ADDRESS`. `ARC_RPC` may point to a private upstream endpoint; `PUBLIC_ARC_RPC` must be safe for the customer's browser.
 
-## Finish the fixed Arc demo purchase
+## Receipt trust
 
-The two signed transactions in `fixtures/demo-sale.json` authorize one deployment and one payment of 0.01 test USDC. Every retry uses the same wallet, contract and purchase. Only use this address on Arc Testnet. The signing key was discarded. Any excess faucet tokens stay in this test wallet.
+The default merchant screen says **Relay confirmed**. It verifies a signature from the pinned relay, which checks the finalized Arc transaction, exact order terms, and deployed bytecode. Reconciliation checks the saved sale again after the merchant reconnects.
 
-1. Fund `0x085e389ff545379035D2774374f91602E9d774B5` on Arc Testnet with at least 0.072 test USDC total. [Circle faucet](https://faucet.circle.com/)
-2. Rerun the latest **Checkout checks** workflow on this branch, or run `node scripts/demo-sale.mjs` after installing dependencies. If the wallet is empty, the result says `awaiting funding`. A green workflow alone does not confirm a live purchase.
-3. Open `artifacts/live-sale.json` in the Chromium evidence download. The command reports `verified` only after both transactions succeeded and the finalized event matches the buyer, vendor, amount, order ID and compiled contract. The expected contract is `0x3bd12A4Cba4771F3B5c82375c19f53618b6b5418`. Use this address as `CHECKOUT_ADDRESS` only after verification.
-4. For subsequent purchases, start the app with that contract and a persistent relay signing key as described below. The fixed demonstration is a single purchase. Each new browser order has its own ID and uses the customer's funded wallet.
+Arc validator proof QR is available only when `ARC_SNAPSHOT_FILE` points to an independently authenticated, height bounded validator set for the payment block. A historical set cannot authorize future blocks. Without a current trusted set, keep the relay label.
 
-Run `node scripts/demo-sale.mjs --rehearse` to test the fixed transaction pair and a repeat run on a disposable chain. [Review and phone checks](docs/REVIEW.md)
-
-## Use Arc Testnet
-
-Run `npm run compile`. Use a dedicated faucet funded test wallet and set `ARC_TESTNET_KEY` in your shell. Run `npm run deploy` and save its deployment hash and address. Set `CHECKOUT_ADDRESS` to that address. Run `npm run keygen` once to create a private relay signing key. Keep this file and all signing secrets outside Git. Run `npm run build && npm start`. For a hosted relay, store the private JWK as a secret named `RELAY_PRIVATE_JWK`. Keep the same public key for the life of each open sale. A private upstream RPC URL belongs in `ARC_RPC`; `PUBLIC_ARC_RPC` must be safe for the browser.
-
-The default register explicitly displays **Relay confirmed**. This proves that the pinned relay signed an exact finalized checkout event. It trusts the relay, which checks runtime bytecode, successful execution and canonical block finality. Reconciliation can detect a dishonest relay only with an independently trusted chain reader. Never advertise a relay receipt as independent Arc verification.
-
-Set `ARC_SNAPSHOT_FILE` before onboarding a fresh register to enable Arc proof QR. The file contains chain ID 5042002, inclusive authorized heights `from` and `to`, and `validators` entries with hexadecimal Ed25519 key and decimal voting power. Provision an independently authenticated, height bounded validator set. A customer supplied set is never trusted. A configured range must be backed by actual knowledge of who can sign at those heights. Never extend a range merely for convenience. Orders retain the snapshot selected when issued. If no verified current set is available, use the explicitly labeled relay mode. Clear a register's site data only after closing and exporting outstanding sales; clearing it removes replay history.
-
-## Evidence and checks
-
-Run `npm test`, `npm run build`, and `npm run spike`. For browser checks install Chromium with `npx playwright install chromium` and run `npm run test:browser`. GitHub Actions runs on the stack branches. Public testnet availability is reported separately in the downloadable evidence artifact. A red live probe should be investigated even if deterministic checks pass.
-
-The committed fixture is an observed Arc testnet receipt from block **73090654**, tx `0x321e2376e51675d063c92b89d67f243d376e3afc5a2b1074906e5655fdd53be6`. Its validator set was read from historical RPC for that block. It demonstrates real receipt verification, not a purchase at this checkout. Record a separately funded checkout deployment, a real purchase hash, and the two phone results before making that claim.
-
-Track: Consumer Applications. Chain goal: Best use of Arc. Scope: browser checkout and QR. Save the video, repository link and deployed contract details for submission. The owner handles the event submission.
+The merchant must open the site online once to cache the app. The customer's phone needs internet through payment and receipt creation. A physical two phone offline checkout has not yet been verified.

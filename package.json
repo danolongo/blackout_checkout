@@ -4,15 +4,11 @@
   "type": "module",
   "version": "0.1.0",
   "scripts": {
-    "test": "node --test test/*.test.mjs",
-    "spike": "node scripts/spike.mjs",
     "compile": "node scripts/compile.mjs",
     "start": "node server/start.mjs",
     "deploy": "node scripts/deploy.mjs",
     "build": "node scripts/build.mjs",
-    "keygen": "node scripts/keygen.mjs",
-    "test:browser": "node test/browser.mjs",
-    "rehearse": "node scripts/rehearse.mjs"
+    "keygen": "node scripts/keygen.mjs"
   },
   "dependencies": {
     "@ethereumjs/trie": "6.2.1",
@@ -26,8 +22,6 @@
     "fflate": "0.8.2"
   },
   "devDependencies": {
-    "solc": "0.8.30",
-    "ganache": "7.9.2",
-    "playwright": "1.55.0"
+    "solc": "0.8.30"
   }
 }

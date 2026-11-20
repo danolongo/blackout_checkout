@@ -75,7 +75,6 @@ async function customer(o){
   const provider=new JsonRpcProvider(new URL(config.rpc,location.origin).href,undefined,{batchMaxCount:1}), wallet=new Wallet(key,provider);
   const address=el('code',wallet.address);box.append(el('small','Your testnet wallet'),address);
   const faucet=el('a','Fund with test USDC');faucet.href='https://faucet.circle.com';faucet.target='_blank';faucet.rel='noopener';box.append(el('p',''),faucet);
-  if(config.rehearsal)button('Fund rehearsal wallet',async()=>{const r=await fetch('/api/rehearsal/fund/'+wallet.address,{method:'POST'});if(!r.ok)throw Error('Rehearsal funding failed');notice('Rehearsal funds ready');});
   if(!o){const last=await get('settings','lastProof');if(last)button('Show last receipt',()=>showReceipt(JSON.parse(last)));button('Scan order',()=>scan(t=>customer(parseOrder(t))));return;}
   matchConfig(o);line('Pay '+formatUnits(o.amount,18)+' test USDC to '+o.vendor);
   const pending='sale:'+o.contract+':'+o.id+':'+o.amount;
@@ -140,7 +139,6 @@ $('merchant').onclick=route(merchant);$('customer').onclick=route(()=>customer()
 async function init(){
   config=await get('settings','config');
   if(!config){try{config=await api('/api/config');await save('settings','config',config);}catch{notice('Connect once to set up this register',true);return;}}
-  if(config.rehearsal)$('network').textContent='Local rehearsal';
   if('serviceWorker' in navigator){const active=await navigator.serviceWorker.getRegistration();
     if(!active)await navigator.serviceWorker.register('/sw.js');
     await navigator.serviceWorker.ready;cacheReady=true;}
