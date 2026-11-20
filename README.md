@@ -1,29 +1,24 @@
 # Blackout Checkout
 
-Blackout Checkout is an Arc Testnet checkout where neither phone needs a connection **during the handoff**. The customer prepays native test USDC into an Arc escrow while online. Later, the merchant and customer exchange signed receive and send intents by QR while both are offline. Each phone uploads its own intent when it reconnects. The matcher waits for the same order ID and exact terms, then submits the two signatures to the contract. The contract transfers the prepaid USDC to the merchant once and records the payment on chain.
+Blackout Checkout is an Arc Testnet checkout where the merchant web app and buyer iPhone app can both be offline during the QR handoff. The merchant signs an invoice QR; the buyer scans it, checks the amount and merchant address, signs a matching payment, and shows a return QR. Each device keeps its own intent locally and uploads it when it reconnects. The matcher waits for both signatures, then settles prepaid native test USDC from the buyer's Arc escrow to the merchant on chain.
 
-A signed QR means **pending**, not paid. The merchant sees **Paid on Arc** only after the settlement transaction succeeds. A buyer can have insufficient escrow at settlement, and an offline device cannot know the latest chain balance. This is a delayed settlement testnet demo, not an offline guarantee of payment. The QR signatures authenticate the terms; they do not provide Apple Pay's NFC or Secure Element protections.
+**A signed QR is pending, not paid.** The merchant shows a verified receipt only after the Arc transaction succeeds. If the buyer's escrow is too low when settlement runs, the order stays pending. The [queued payment option](OFFLINE_PAYMENT_PLAN.md) without escrow is a future plan.
 
-The shorter [queued payment option](OFFLINE_PAYMENT_PLAN.md) records a possible path without prepaid escrow. It is not the current implementation.
+## Run locally
 
-## Run the Arc Testnet app
+Use Node 22 or newer. Run `npm ci`, `npm run compile`, and `npm run build`. Set `CHECKOUT_ADDRESS` to the deployed checkout contract and `MATCHER_PRIVATE_KEY` to a funded Arc Testnet wallet, then run `npm start`. The matcher listens on port 4173 by default and stores its queue in ignored `runtime/matches.json`. Keep the matcher key in an ignored file or secret manager.
 
-Use Node 22 or newer. Run `npm ci`, `npm run compile`, and `npm run build`. Set `CHECKOUT_ADDRESS` and a funded `MATCHER_PRIVATE_KEY`, then run `npm start`. Keep the matcher key in a secret manager or an ignored local file. Keep `runtime/matches.json` on persistent storage; the matcher resumes queued intents after a restart. The customer wallet is generated in that browser's IndexedDB. Back up its testnet recovery key before depositing funds.
+Open **http://localhost:4173** on the merchant Mac. The web app is merchant only; it creates invoices, scans the buyer's return QR with the Mac camera, and shows Sales and receipts. Open it online once so its offline assets are cached. Back up the merchant testnet recovery key in Settings before clearing browser storage.
 
-The deployed escrow contract is [`0x38929cCE8c5914755587d41Bf78B9ccC401AAc4d`](https://explorer.testnet.arc.io/address/0x38929cCE8c5914755587d41Bf78B9ccC401AAc4d). Deployment: [`0x2734ab…7cfda1`](https://explorer.testnet.arc.io/tx/0x2734ab005c2d6aad4f3adb608b47ce39b89834ec8ab23f361f5af9b94b7cfda1). A scripted matcher run deposited 0.02 test USDC and [settled 0.01 test USDC](https://explorer.testnet.arc.io/tx/0xe10e6f3f550d4b8099839464ed7ad7a0c6ed978027d6f3422fb9ad08d78dcb12) to a separate merchant wallet. Both signatures and the contract transfer were verified on Arc Testnet. That run did not use two physical phones.
+Open [the iPhone project](ios/BlackoutBuyer.xcodeproj) in Xcode, select your phone and signing team, and Run. In the buyer app's Settings, enter `http://<Mac LAN IP>:4173`; both devices must be on the same Wi-Fi when syncing. The iOS app stores its wallet in Keychain. Get Arc Testnet USDC from Circle's faucet for that wallet, then use **Add → Deposit to Arc escrow** while online. Keep a little in the wallet for Arc network fees. See [iOS setup](ios/README.md) for details.
 
-For phones, serve the app on one trusted HTTPS origin both can open. Each device must open it online once to cache the app. The browser camera needs permission to scan the QR codes. The default public Arc RPC is used by the customer for deposit and withdrawal; `ARC_RPC` can set the matcher's upstream RPC and `PUBLIC_ARC_RPC` can set the browser RPC.
+## Demo
 
-## Demo sequence
+1. Prepare the buyer's Arc escrow and open both apps online once.
+2. Take both devices offline. Create an invoice on the merchant web app and scan its QR with the buyer iPhone.
+3. Confirm the signed terms on iPhone. Show the buyer's return QR to the merchant camera. Both devices show a pending state.
+4. Reconnect either device first; its intent waits in the matcher. Reconnect the other; the matcher submits the matched order to Arc. Both sides show verified only after settlement.
 
-1. On the customer phone, get free Arc Testnet USDC from the Circle faucet and deposit some into **Prepay test USDC** while online.
-2. Open the app on both phones, then disconnect both. The merchant enters an amount and shows a signed receive QR.
-3. The customer scans it, checks the amount and merchant address, signs offline, and shows a send QR. The merchant scans that QR and sees **Matched locally · pending settlement**.
-4. Reconnect the merchant phone first. Its receive intent uploads and waits. Reconnect the customer phone later. Its send intent uploads; the matcher submits them to Arc.
-5. Both phones show **Paid on Arc** after settlement. The sale links to the Arc transaction. Reusing the same order ID cannot pay twice.
+The deployed contract is [`0x38929cCE8c5914755587d41Bf78B9ccC401AAc4d`](https://explorer.testnet.arc.io/address/0x38929cCE8c5914755587d41Bf78B9ccC401AAc4d). A prior scripted two-signature [settlement succeeded on Arc Testnet](https://explorer.testnet.arc.io/tx/0xe10e6f3f550d4b8099839464ed7ad7a0c6ed978027d6f3422fb9ad08d78dcb12). That transaction did not use the new iPhone app; the physical-phone camera and Arc deposit still need the planned phone rehearsal.
 
-The current browser transport is QR, not NFC. Web NFC has [limited browser availability](https://developer.mozilla.org/en-US/docs/Web/API/Web_NFC_API), so the two phone flow still needs a physical camera and offline cache rehearsal before presenting it as a verified phone demo.
-
-## Checks
-
-Run `npm test`, `forge test`, `npm run compile`, and `npm run build`. The Node checks cover signed intent matching and matcher persistence; the Solidity checks cover payment, withdrawal, replay, tampering, expiry, and insufficient funds.
+Run `npm test` and `forge test` for the intent matcher and escrow contract checks.

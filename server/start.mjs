@@ -33,6 +33,9 @@ const assets={'/':['index.html','text/html'],'/app.js':['app.js','text/javascrip
   '/sw.js':['sw.js','text/javascript'],'/style.css':['style.css','text/css']};
 function json(res,status,value){res.writeHead(status,{'content-type':'application/json','cache-control':'no-store'});res.end(JSON.stringify(value));}
 function sameOrigin(req){
+  // Native clients do not send Origin. Browser requests do, so keep the
+  // same-origin check for them while accepting signed intents from iOS.
+  if(!req.headers.origin)return true;
   try{return new URL(req.headers.origin).host===req.headers.host;}catch{return false;}
 }
 async function body(req){
