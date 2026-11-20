@@ -74,4 +74,23 @@ contract CheckoutTest {
         (bool expired,) = address(checkout).call(abi.encodeCall(checkout.settle, (o, receiveSig, sendSig)));
         require(!expired, "expired intent accepted");
     }
+
+    function testSignedCancellationBlocksIndependentSettlement() public {
+        BlackoutCheckout.Order memory o = order();
+        (bytes memory receiveSig, bytes memory sendSig) = signatures(o);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(VENDOR_KEY, checkout.cancelDigest(vendor, o.id));
+        checkout.cancelSigned(vendor, o.id, abi.encodePacked(r, s, v));
+        require(checkout.cancelled(checkout.orderKey(vendor, o.id)), "not cancelled");
+        (bool paid,) = address(checkout).call(abi.encodeCall(checkout.settle, (o, receiveSig, sendSig)));
+        require(!paid, "cancelled order paid");
+    }
+
+    function testSettledOrderCannotBeCancelled() public {
+        BlackoutCheckout.Order memory o = order();
+        (bytes memory receiveSig, bytes memory sendSig) = signatures(o);
+        checkout.settle(o, receiveSig, sendSig);
+        vm.prank(vendor);
+        (bool cancelled,) = address(checkout).call(abi.encodeCall(checkout.cancel, (o.id)));
+        require(!cancelled, "settled order cancelled");
+    }
 }

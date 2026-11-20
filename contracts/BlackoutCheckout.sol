@@ -14,20 +14,24 @@ contract BlackoutCheckout {
     bytes32 private constant DOMAIN_TYPEHASH = keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
     bytes32 private constant RECEIVE_TYPEHASH = keccak256("Receive(bytes16 id,address vendor,uint256 amount,uint64 deadline)");
     bytes32 private constant SEND_TYPEHASH = keccak256("Send(bytes16 id,address vendor,address payer,uint256 amount,uint64 deadline)");
+    bytes32 private constant CANCEL_TYPEHASH = keccak256("Cancel(bytes16 id,address vendor)");
     uint256 private constant HALF_ORDER = 0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0;
 
     bytes32 public immutable DOMAIN_SEPARATOR;
     mapping(address => uint256) public balanceOf;
     mapping(bytes32 => bool) public settled;
+    mapping(bytes32 => bool) public cancelled;
 
     event Deposited(address indexed payer, uint256 amount);
     event Withdrawn(address indexed payer, uint256 amount);
     event OrderPaid(bytes16 indexed orderId, address indexed vendor, address indexed payer, uint256 amount);
+    event OrderCancelled(bytes16 indexed orderId, address indexed vendor);
 
     error InvalidOrder();
     error InvalidSignature();
     error Expired();
     error AlreadyPaid();
+    error OrderCancelledError();
     error InsufficientBalance();
     error ForwardFailed();
 
@@ -62,10 +66,34 @@ contract BlackoutCheckout {
         return _digest(keccak256(abi.encode(SEND_TYPEHASH, o.id, o.vendor, o.payer, o.amount, o.deadline)));
     }
 
+    function cancelDigest(address vendor, bytes16 id) public view returns (bytes32) {
+        return _digest(keccak256(abi.encode(CANCEL_TYPEHASH, id, vendor)));
+    }
+
+    function cancel(bytes16 id) external {
+        _cancel(msg.sender, id);
+    }
+
+    function cancelSigned(address vendor, bytes16 id, bytes calldata signature) external {
+        if (_recover(cancelDigest(vendor, id), signature) != vendor) revert InvalidSignature();
+        _cancel(vendor, id);
+    }
+
+    function _cancel(address vendor, bytes16 id) private {
+        if (vendor == address(0) || id == bytes16(0)) revert InvalidOrder();
+        bytes32 key = orderKey(vendor, id);
+        if (settled[key]) revert AlreadyPaid();
+        if (!cancelled[key]) {
+            cancelled[key] = true;
+            emit OrderCancelled(id, vendor);
+        }
+    }
+
     function settle(Order calldata o, bytes calldata receiveSignature, bytes calldata sendSignature) external {
         if (o.id == bytes16(0) || o.vendor == address(0) || o.payer == address(0) || o.amount == 0) revert InvalidOrder();
         if (block.timestamp > o.deadline) revert Expired();
         bytes32 key = orderKey(o.vendor, o.id);
+        if (cancelled[key]) revert OrderCancelledError();
         if (settled[key]) revert AlreadyPaid();
         if (_recover(receiveDigest(o), receiveSignature) != o.vendor ||
             _recover(sendDigest(o), sendSignature) != o.payer) revert InvalidSignature();

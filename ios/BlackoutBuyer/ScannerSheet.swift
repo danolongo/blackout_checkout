@@ -7,16 +7,37 @@ struct ScannerSheet: View {
   @Environment(\.dismiss) private var dismiss
   @State private var captureID=0
   @State private var scanMessage="Point the camera at the merchant QR."
+  @State private var frameID=""
+  @State private var frameTotal=0
+  @State private var frameParts:[Int:String]=[:]
+  private func handleCode(_ raw:String)->Bool {
+    if let data=raw.data(using:.utf8),let frame=try? JSONSerialization.jsonObject(with:data) as? [String:Any],
+       frame["kind"] as? String == "proof-frame",let id=frame["id"] as? String,
+       let index=frame["index"] as? Int,let total=frame["total"] as? Int,
+       let chunk=frame["chunk"] as? String,total>0,total<=100,index>=0,index<total,chunk.count<=1000 {
+      if frameID != id || frameTotal != total {frameID=id;frameTotal=total;frameParts=[:]}
+      frameParts[index]=chunk
+      scanMessage="Settlement proof \(frameParts.count) of \(total) frames"
+      if frameParts.count == total {
+        let json=(0..<total).compactMap{frameParts[$0]}.joined()
+        guard let value=json.data(using:.utf8),
+          (try? JSONSerialization.jsonObject(with:value)) != nil else {scanMessage="Invalid settlement proof. Scan again.";frameParts=[:];return false}
+        onCode(json);dismiss();return true
+      }
+      return false
+    }
+    onCode(raw);dismiss();return true
+  }
   var body:some View {
     NavigationStack {
-      ZStack {Color.black.ignoresSafeArea();VStack(spacing:20){CameraScanner(captureID:captureID,onCode:{onCode($0);dismiss()},onError:{scanMessage=$0}).clipShape(RoundedRectangle(cornerRadius:20)).frame(height:390);Text(scanMessage).foregroundStyle(.white).multilineTextAlignment(.center);Spacer();Button {captureID += 1} label:{Circle().stroke(.white,lineWidth:3).frame(width:76,height:76).overlay(Circle().fill(.white).frame(width:58,height:58))}.accessibilityLabel("Capture and scan QR code").padding(.bottom,20)}.padding(24)}
+      ZStack {Color.black.ignoresSafeArea();VStack(spacing:20){CameraScanner(captureID:captureID,onCode:handleCode,onError:{scanMessage=$0}).clipShape(RoundedRectangle(cornerRadius:20)).frame(height:390);Text(scanMessage).foregroundStyle(.white).multilineTextAlignment(.center);Spacer();Button {captureID += 1} label:{Circle().stroke(.white,lineWidth:3).frame(width:76,height:76).overlay(Circle().fill(.white).frame(width:58,height:58))}.accessibilityLabel("Capture and scan QR code").padding(.bottom,20)}.padding(24)}
       .navigationTitle("Scan to pay").navigationBarTitleDisplayMode(.inline).toolbar {ToolbarItem(placement:.topBarTrailing){Button("Cancel"){dismiss()}}}
     }
   }
 }
 struct CameraScanner:UIViewRepresentable {
   let captureID:Int
-  let onCode:(String)->Void
+  let onCode:(String)->Bool
   let onError:(String)->Void
   func makeCoordinator()->Coordinator{Coordinator(onCode:onCode,onError:onError)}
   func makeUIView(context:Context)->UIView {
@@ -49,9 +70,9 @@ struct CameraScanner:UIViewRepresentable {
     }
   }
   final class Coordinator:NSObject,AVCaptureMetadataOutputObjectsDelegate {
-    let onCode:(String)->Void;let onError:(String)->Void
+    let onCode:(String)->Bool;let onError:(String)->Void
     var session:AVCaptureSession?;var photoOutput:AVCapturePhotoOutput?;var found=false;var lastCaptureID=0;var capturing=false
-    init(onCode:@escaping(String)->Void,onError:@escaping(String)->Void){self.onCode=onCode;self.onError=onError}
+    init(onCode:@escaping(String)->Bool,onError:@escaping(String)->Void){self.onCode=onCode;self.onError=onError}
     func configure(_ view:PreviewView){
       guard session == nil else{return}
       let capture=AVCaptureSession()
@@ -69,7 +90,7 @@ struct CameraScanner:UIViewRepresentable {
       guard !found,!capturing,session?.isRunning == true,let photoOutput else {onError("Camera is starting. Try again in a moment.");return}
       capturing=true;photoOutput.capturePhoto(with:AVCapturePhotoSettings(),delegate:self)
     }
-    func metadataOutput(_ output:AVCaptureMetadataOutput,didOutput objects:[AVMetadataObject],from connection:AVCaptureConnection){guard !found,let qr=objects.first as? AVMetadataMachineReadableCodeObject,let value=qr.stringValue else{return};found=true;onCode(value)}
+    func metadataOutput(_ output:AVCaptureMetadataOutput,didOutput objects:[AVMetadataObject],from connection:AVCaptureConnection){guard !found,let qr=objects.first as? AVMetadataMachineReadableCodeObject,let value=qr.stringValue else{return};found=true;if !onCode(value){found=false}}
   }
 }
 extension CameraScanner.Coordinator:AVCapturePhotoCaptureDelegate {
@@ -80,7 +101,7 @@ extension CameraScanner.Coordinator:AVCapturePhotoCaptureDelegate {
     do {
       try VNImageRequestHandler(data:data,options:[:]).perform([request])
       guard let code=request.results?.first?.payloadStringValue else {onError("No QR code found. Move closer and try again.");return}
-      found=true;onCode(code)
+      found=true;if !onCode(code){found=false}
     } catch {onError("Could not read the QR. Try again.")}
   }
 }

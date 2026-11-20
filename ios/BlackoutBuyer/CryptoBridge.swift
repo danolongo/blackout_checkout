@@ -32,6 +32,9 @@ import Security
   func verifyReceive(_ json: String, contract: String) async throws -> String { try await call("verifyReceive", [json, contract]) }
   func sign(_ json: String, key: String, contract: String) async throws -> String { try await call("sign", [key, json, contract]) }
   func signDeposit(key: String, contract: String, amount: String, nonce: String, gasPrice: String) async throws -> String { try await call("signDeposit", [key, contract, amount, nonce, gasPrice]) }
+  func signWithdraw(key:String,contract:String,amount:String,nonce:String,gasPrice:String) async throws -> String {try await call("signWithdraw",[key,contract,amount,nonce,gasPrice])}
+  func verifyProof(_ proof:String,receive:String,send:String,snapshot:String) async throws -> String {try await call("verifyProof",[proof,receive,send,snapshot])}
+  func validatorSnapshot(_ raw:String,from:Int,to:Int) async throws -> String {try await call("validatorSnapshot",[raw,String(from),String(to)])}
 }
 
 enum SecureWallet {
