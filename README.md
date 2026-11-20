@@ -4,6 +4,8 @@ Blackout Checkout is an Arc Testnet checkout where neither phone needs a connect
 
 A signed QR means **pending**, not paid. The merchant sees **Paid on Arc** only after the settlement transaction succeeds. A buyer can have insufficient escrow at settlement, and an offline device cannot know the latest chain balance. This is a delayed settlement testnet demo, not an offline guarantee of payment. The QR signatures authenticate the terms; they do not provide Apple Pay's NFC or Secure Element protections.
 
+The shorter [queued payment option](OFFLINE_PAYMENT_PLAN.md) records a possible path without prepaid escrow. It is not the current implementation.
+
 ## Run the Arc Testnet app
 
 Use Node 22 or newer. Run `npm ci`, `npm run compile`, and `npm run build`. Set `CHECKOUT_ADDRESS` and a funded `MATCHER_PRIVATE_KEY`, then run `npm start`. Keep the matcher key in a secret manager or an ignored local file. Keep `runtime/matches.json` on persistent storage; the matcher resumes queued intents after a restart. The customer wallet is generated in that browser's IndexedDB. Back up its testnet recovery key before depositing funds.
