@@ -3,10 +3,10 @@ import {mkdir,writeFile,copyFile,readFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 await mkdir('dist',{recursive:true});
 await build({entryPoints:['web/app.mjs'],outfile:'dist/app.js',bundle:true,define:{'process.env.NODE_ENV':'"production"'},minify:true,format:'esm',platform:'browser',target:['safari16']});
-const assets=['/','/app.js','/style.css'];
-await Promise.all(['index.html','style.css'].map(f=>copyFile('web/'+f,'dist/'+f)));
+const assets=['/','/app.js','/style.css','/echo-mark.svg'];
+await Promise.all(['index.html','style.css','echo-mark.svg'].map(f=>copyFile('web/'+f,'dist/'+f)));
 const hash=createHash('sha256');
-for(const file of ['index.html','app.js','style.css']) hash.update(await readFile('dist/'+file));
+for(const file of ['index.html','app.js','style.css','echo-mark.svg']) hash.update(await readFile('dist/'+file));
 const cache='blackout-'+hash.digest('hex').slice(0,16);
 await writeFile('dist/sw.js',`
 const cacheName=${JSON.stringify(cache)};

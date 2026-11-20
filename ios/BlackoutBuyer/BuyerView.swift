@@ -20,6 +20,26 @@ private struct Avatar: View {
   var size:CGFloat=40
   var body:some View { Text(text).font(.custom("Inter",size:size/3).weight(.semibold)).foregroundStyle(Color(red:201/255,green:201/255,blue:207/255)).frame(width:size,height:size).background(Color(red:26/255,green:26/255,blue:30/255),in:Circle()).overlay(Circle().stroke(C.border)) }
 }
+private struct EchoMark: View {
+  var size:CGFloat=34
+  var body:some View {
+    Canvas { context, canvas in
+      let scale=canvas.width/64
+      context.scaleBy(x:scale,y:scale)
+      context.fill(Path(ellipseIn:CGRect(x:11,y:27,width:10,height:10)),with:.color(C.green))
+      for (start,control,end) in [
+        (CGPoint(x:26,y:22),CGPoint(x:33,y:32),CGPoint(x:26,y:42)),
+        (CGPoint(x:34,y:13),CGPoint(x:48,y:32),CGPoint(x:34,y:51)),
+        (CGPoint(x:42,y:5),CGPoint(x:63,y:32),CGPoint(x:42,y:59))
+      ] {
+        var path=Path()
+        path.move(to:start)
+        path.addQuadCurve(to:end,control:control)
+        context.stroke(path,with:.color(C.fg),style:StrokeStyle(lineWidth:5,lineCap:.round))
+      }
+    }.frame(width:size,height:size).accessibilityLabel("Echo")
+  }
+}
 struct BuyerView: View {
   @EnvironmentObject private var m:CheckoutModel
   @State private var imported=""
@@ -45,8 +65,8 @@ struct BuyerView: View {
   private var home:some View {
     VStack(alignment:.leading,spacing:0) {
       HStack(spacing:10) {
-        Avatar(text:"AC",size:36)
-        VStack(alignment:.leading,spacing:2) { Text("Good evening").font(.custom("Inter",size:12)).foregroundStyle(C.muted);Text("Ava Chen").font(.custom("Inter",size:15).weight(.semibold)) }
+        EchoMark(size:36)
+        VStack(alignment:.leading,spacing:2) { Text("Echo").font(.custom("Inter",size:16).weight(.semibold));Text("Ava Chen").font(.custom("Inter",size:12)).foregroundStyle(C.muted) }
         Spacer()
         Button { m.showingSettings=true } label:{Image(systemName:"gearshape").font(.custom("Inter",size:19)).frame(width:40,height:40).overlay(Circle().stroke(C.border))}
       }.padding(.top,8)
