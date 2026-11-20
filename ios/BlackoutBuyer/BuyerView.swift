@@ -76,7 +76,7 @@ struct BuyerView: View {
     VStack(alignment:.leading,spacing:0) {
       HStack(spacing:10) {
         EchoMark(size:36)
-        VStack(alignment:.leading,spacing:2) { Text("Echo").font(.custom("Inter",size:16).weight(.semibold));Text("Laksh K.").font(.custom("Inter",size:12)).foregroundStyle(C.muted) }
+        VStack(alignment:.leading,spacing:2) { Text("Echo").font(.custom("Inter",size:16).weight(.semibold));Text("Laksh Kumar").font(.custom("Inter",size:12)).foregroundStyle(C.muted) }
         Spacer()
         Button { m.showingSettings=true } label:{Image(systemName:"gearshape").font(.custom("Inter",size:19)).frame(width:40,height:40).overlay(RoundedRectangle(cornerRadius:3).stroke(C.border))}
       }.padding(.top,8)
