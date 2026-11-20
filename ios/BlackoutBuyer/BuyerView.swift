@@ -56,7 +56,7 @@ struct BuyerView: View {
     VStack(alignment:.leading,spacing:0) {
       HStack(spacing:10) {
         Image(systemName:"person.crop.circle").font(.system(size:30,weight:.regular)).frame(width:36,height:36).accessibilityLabel("Profile")
-        Text("laksh K.").font(.custom("Inter",size:16).weight(.semibold))
+        Text("Laksh K.").font(.custom("Inter",size:16).weight(.semibold))
         Spacer()
         Button { m.showingSettings=true } label:{Image(systemName:"gearshape").font(.custom("Inter",size:19)).frame(width:40,height:40).overlay(RoundedRectangle(cornerRadius:3).stroke(C.border))}
       }.padding(.top,8)
