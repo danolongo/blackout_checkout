@@ -3,6 +3,7 @@ import {readFile} from 'node:fs/promises';
 import {Contract,getAddress,JsonRpcProvider,keccak256,TypedDataEncoder} from 'ethers';
 import {Matcher} from './matcher.mjs';
 import {CHAIN,domain,escrowAbi,intentKey} from '../src/intents.mjs';
+import {createSettlementProof} from '../src/proof-build.mjs';
 
 const port=Number(process.env.PORT||4173);
 const host=process.env.HOST||'0.0.0.0';
@@ -24,6 +25,10 @@ const actual=await provider.getCode(contract);
 if(actual.length!==runtime.length||keccak256(maskImmutables(actual))!==keccak256(maskImmutables(runtime)))
   throw Error('Checkout address has unexpected bytecode');
 const escrow=new Contract(contract,escrowAbi,provider);
+const legacyEscrow=new Contract('0x38929cCE8c5914755587d41Bf78B9ccC401AAc4d',
+  ['function balanceOf(address) view returns (uint256)'],provider);
+const registry=new Contract('0x3600000000000000000000000000000000000002',
+  ['function getActiveValidatorSet() view returns ((uint8 status,bytes publicKey,uint64 votingPower)[])'],provider);
 if(await escrow.DOMAIN_SEPARATOR()!==TypedDataEncoder.hashDomain(domain(contract)))
   throw Error('Checkout signature domain does not match this chain');
 const matcher=new Matcher({provider,contract,key,
@@ -50,11 +55,25 @@ async function body(req){
 createServer(async(req,res)=>{
   try{
     const path=new URL(req.url,'http://localhost').pathname;
-    if(path==='/api/config'&&req.method==='GET')return json(res,200,{chain:CHAIN,contract,
-      rpc:process.env.PUBLIC_ARC_RPC||'https://rpc.testnet.arc.io',mode:'delayed-escrow'});
+    if(path==='/api/config'&&req.method==='GET'){
+      const head=await provider.getBlockNumber();
+      const validators=(await registry.getActiveValidatorSet({blockTag:head}))
+        .filter(v=>v.status===2n&&v.votingPower>0n)
+        .map(v=>({key:v.publicKey,power:String(v.votingPower)}));
+      if(!validators.length)throw Error('Arc validator set unavailable');
+      return json(res,200,{chain:CHAIN,contract,
+        rpc:process.env.PUBLIC_ARC_RPC||'https://rpc.testnet.arc.io',mode:'delayed-escrow',
+        validatorSnapshot:{chain:CHAIN,from:head+1,to:head+1800,validators}});
+    }
     if(path==='/api/intents'&&req.method==='POST'){
       if(!sameOrigin(req))return json(res,403,{error:'Same origin required'});
       const result=await matcher.submit(await body(req));
+      matcher.process().catch(console.error);
+      return json(res,200,result);
+    }
+    if(path==='/api/package'&&req.method==='POST'){
+      if(!sameOrigin(req))return json(res,403,{error:'Same origin required'});
+      const result=await matcher.submitPackage(await body(req));
       matcher.process().catch(console.error);
       return json(res,200,result);
     }
@@ -64,8 +83,17 @@ createServer(async(req,res)=>{
     }
     const status=/^\/api\/status\/(0x[\da-fA-F]{40})\/(0x[\da-fA-F]{32})$/.exec(path);
     if(status&&req.method==='GET')return json(res,200,matcher.status(intentKey({vendor:getAddress(status[1]),id:status[2].toLowerCase()})));
+    const proof=/^\/api\/settlement-proof\/(0x[\da-fA-F]{40})\/(0x[\da-fA-F]{32})$/.exec(path);
+    if(proof&&req.method==='GET'){
+      const entry=matcher.entries[intentKey({vendor:getAddress(proof[1]),id:proof[2].toLowerCase()})];
+      if(entry?.status!=='settled'||!entry.txHash||!entry.receive)return json(res,404,{error:'Payment is not confirmed on Arc'});
+      const receipt=await provider.getTransactionReceipt(entry.txHash);
+      return json(res,200,await createSettlementProof(provider,receipt,entry.receive));
+    }
     const balance=/^\/api\/balance\/(0x[\da-fA-F]{40})$/.exec(path);
     if(balance&&req.method==='GET')return json(res,200,{balance:String(await escrow.balanceOf(getAddress(balance[1])))});
+    const legacy=/^\/api\/legacy-balance\/(0x[\da-fA-F]{40})$/.exec(path);
+    if(legacy&&req.method==='GET')return json(res,200,{balance:String(await legacyEscrow.balanceOf(getAddress(legacy[1])))});
     const walletBalance=/^\/api\/wallet-balance\/(0x[\da-fA-F]{40})$/.exec(path);
     if(walletBalance&&req.method==='GET')return json(res,200,{balance:String(await provider.getBalance(getAddress(walletBalance[1])))});
     if(req.method!=='GET')return json(res,405,{error:'Use GET'});

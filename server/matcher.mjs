@@ -1,7 +1,7 @@
 import {mkdir,readFile,rename,writeFile} from 'node:fs/promises';
 import {dirname} from 'node:path';
 import {Contract,Wallet} from 'ethers';
-import {escrowAbi,intentKey,match,verifyCancel,verifyReceive,verifySend} from '../src/intents.mjs';
+import {escrowAbi,intentKey,match,verifyCancel,verifyPackage,verifyReceive,verifySend} from '../src/intents.mjs';
 
 export class Matcher {
   constructor({provider,contract,key,file='runtime/matches.json'}){
@@ -46,6 +46,22 @@ export class Matcher {
       return this.status(key);
     });
   }
+  async submitPackage(raw){
+    const payment=verifyPackage(raw,this.contractAddress);
+    return this.queue(async()=>{
+      const key=intentKey(payment.send),entry=this.entries[key]||{status:'waiting',updated:Date.now()};
+      if(entry.status==='cancelled'||await this.contract.cancelled(await this.contract.orderKey(payment.send.vendor,payment.send.id)))
+        throw Error('Invoice cancelled on Arc');
+      if(!this.entries[key]&&Object.keys(this.entries).length>=10000)throw Error('Matcher queue full');
+      if(entry.receive&&JSON.stringify(entry.receive)!==JSON.stringify(payment.receive))throw Error('Conflicting invoice');
+      if(entry.send&&JSON.stringify(entry.send)!==JSON.stringify(payment.send))throw Error('Conflicting customer payment');
+      if(entry.status==='settled')return this.status(key);
+      entry.receive=payment.receive;entry.send=payment.send;
+      entry.status=entry.txHash?'submitted':'matched';entry.updated=Date.now();
+      this.entries[key]=entry;await this.persist();
+      return this.status(key);
+    });
+  }
   async cancel(raw){
     const cancellation=verifyCancel(raw,this.contractAddress);
     return this.queue(async()=>{
@@ -53,7 +69,10 @@ export class Matcher {
       if(!this.entries[key]&&Object.keys(this.entries).length>=10000)throw Error('Matcher queue full');
       if(entry.send||entry.txHash||['matched','submitted','settled','external_settlement'].includes(entry.status))
         throw Error('Customer payment already received; this invoice cannot be cancelled');
-      entry.status='cancelled';entry.error=null;entry.updated=Date.now();
+      const tx=await this.contract.cancelSigned(cancellation.vendor,cancellation.id,cancellation.signature);
+      const receipt=await tx.wait();
+      if(receipt.status!==1)throw Error('On-chain cancellation failed');
+      entry.status='cancelled';entry.error=null;entry.txHash=tx.hash;entry.updated=Date.now();
       this.entries[key]=entry;await this.persist();
       return this.status(key);
     });
@@ -79,8 +98,9 @@ export class Matcher {
           entry.status='expired';entry.error='Intent expired before settlement';
         }else{
           try{
-            const onChain=await this.contract.settled(await this.contract.orderKey(o.vendor,o.id));
-            if(onChain){entry.status='external_settlement';entry.error='Order already settled outside this matcher';}
+            const orderKey=await this.contract.orderKey(o.vendor,o.id);
+            if(await this.contract.cancelled(orderKey)){entry.status='cancelled';entry.error='Invoice cancelled on Arc';}
+            else if(await this.contract.settled(orderKey)){entry.status='external_settlement';entry.error='Order already settled outside this matcher';}
             else if((await this.contract.balanceOf(o.payer))<BigInt(o.amount)){
               entry.status='awaiting_funds';entry.error='Customer escrow balance is too low';
             }else{

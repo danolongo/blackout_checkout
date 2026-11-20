@@ -18,33 +18,23 @@ private struct CircleIcon: View {
 private struct Avatar: View {
   let text:String
   var size:CGFloat=40
-  var body:some View { Text(text).font(.custom("Inter",size:size/3).weight(.semibold)).foregroundStyle(Color(red:201/255,green:201/255,blue:207/255)).frame(width:size,height:size).background(Color(red:26/255,green:26/255,blue:30/255),in:Circle()).overlay(Circle().stroke(C.border)) }
+  var body:some View { Text(text).font(.custom("Inter",size:size/3).weight(.semibold)).foregroundStyle(Color(red:201/255,green:201/255,blue:207/255)).frame(width:size,height:size).background(Color(red:26/255,green:26/255,blue:30/255),in:Circle()).overlay(RoundedRectangle(cornerRadius:3).stroke(C.border)) }
 }
-private struct EchoMark: View {
-  var size:CGFloat=34
-  var body:some View {
-    Canvas { context, canvas in
-      let scale=canvas.width/64
-      context.scaleBy(x:scale,y:scale)
-      context.fill(Path(ellipseIn:CGRect(x:11,y:27,width:10,height:10)),with:.color(C.green))
-      for (start,control,end) in [
-        (CGPoint(x:26,y:22),CGPoint(x:33,y:32),CGPoint(x:26,y:42)),
-        (CGPoint(x:34,y:13),CGPoint(x:48,y:32),CGPoint(x:34,y:51)),
-        (CGPoint(x:42,y:5),CGPoint(x:63,y:32),CGPoint(x:42,y:59))
-      ] {
-        var path=Path()
-        path.move(to:start)
-        path.addQuadCurve(to:end,control:control)
-        context.stroke(path,with:.color(C.fg),style:StrokeStyle(lineWidth:5,lineCap:.round))
-      }
-    }.frame(width:size,height:size).accessibilityLabel("Echo")
-  }
-}
+private struct ProofFrame: Encodable {let v=1;let kind="proof-frame";let id:String;let index:Int;let total:Int;let chunk:String}
 struct BuyerView: View {
   @EnvironmentObject private var m:CheckoutModel
   @State private var imported=""
   @State private var depositAmount=""
   @State private var showAmounts=false
+  private func proofFrames(_ json:String,id:String)->[String] {
+    let characters=Array(json),size=600,total=(characters.count+size-1)/size
+    guard total>0,total<=100 else {return []}
+    return (0..<total).compactMap { index in
+      let chunk=String(characters[(index*size)..<min((index+1)*size,characters.count)])
+      guard let data=try? JSONEncoder().encode(ProofFrame(id:id,index:index,total:total,chunk:chunk)) else {return nil}
+      return String(data:data,encoding:.utf8)
+    }
+  }
   var body:some View {
     ZStack {
       C.bg.ignoresSafeArea()
@@ -65,8 +55,8 @@ struct BuyerView: View {
   private var home:some View {
     VStack(alignment:.leading,spacing:0) {
       HStack(spacing:10) {
-        EchoMark(size:36)
-        VStack(alignment:.leading,spacing:2) { Text("Echo").font(.custom("Inter",size:16).weight(.semibold));Text("Laksh K.").font(.custom("Inter",size:12)).foregroundStyle(C.muted) }
+        Image(systemName:"person.crop.circle").font(.system(size:30,weight:.regular)).frame(width:36,height:36).accessibilityLabel("Profile")
+        Text("Laksh K.").font(.custom("Inter",size:16).weight(.semibold))
         Spacer()
         Button { m.showingSettings=true } label:{Image(systemName:"gearshape").font(.custom("Inter",size:19)).frame(width:40,height:40).overlay(RoundedRectangle(cornerRadius:3).stroke(C.border))}
       }.padding(.top,8)
@@ -77,6 +67,14 @@ struct BuyerView: View {
           .foregroundStyle(C.fg)
         Text("USDC").font(.custom("Inter",size:15).weight(.medium)).foregroundStyle(C.muted)
       }.padding(.top,8)
+      if (Decimal(string:m.legacyBalance) ?? 0)>0 {
+        HStack(spacing:10) {
+          Image(systemName:"arrow.triangle.2.circlepath").foregroundStyle(C.green)
+          VStack(alignment:.leading,spacing:2) {Text(CheckoutModel.money(m.legacyBalance)+" USDC in previous escrow").font(.custom("Inter",size:13).weight(.semibold));Text("Move it to use it for new payments").font(.custom("Inter",size:11)).foregroundStyle(C.muted)}
+          Spacer(minLength:4)
+          Button(m.busy ? "Moving…" : "Move") {Task {await m.migrateLegacy()}}.font(.custom("Inter",size:13).weight(.semibold)).disabled(m.busy)
+        }.padding(12).background(C.surface,in:RoundedRectangle(cornerRadius:3)).overlay(RoundedRectangle(cornerRadius:3).stroke(C.border)).padding(.top,14)
+      }
       HStack(spacing:8) {
         action("Pay","viewfinder") { m.showingScanner=true }
         action("Add","plus") { m.showingSettings=true }
@@ -121,7 +119,7 @@ struct BuyerView: View {
       VStack(spacing:0) {detail("Pay from","Escrow · \(CheckoutModel.money(m.balance))");detail("Network","Arc Testnet");detail("Invoice",short(m.pendingReceive?.id ?? ""))}.padding(.horizontal,18).background(Color(red:17/255,green:17/255,blue:19/255),in:RoundedRectangle(cornerRadius:3)).overlay(RoundedRectangle(cornerRadius:3).stroke(C.border)).padding(.top,32)
       Spacer()
       Button {Task {await m.authorize()}} label:{HStack(spacing:8){Image(systemName:"checkmark.shield");Text(m.busy ? "Signing…" : "Confirm payment")}.frame(maxWidth:.infinity).frame(height:54).background(C.fg,in:RoundedRectangle(cornerRadius:3)).foregroundStyle(C.bg).font(.custom("Inter",size:16).weight(.semibold))}.disabled(m.busy)
-      Text("Scanning only reads the invoice. Confirm to sign; funds move after both sides reconnect.").font(.custom("Inter",size:13)).foregroundStyle(C.muted).multilineTextAlignment(.center).padding(.top,12)
+      Text("Scanning only reads the invoice. Confirm to sign; either device can submit the payment after reconnecting.").font(.custom("Inter",size:13)).foregroundStyle(C.muted).multilineTextAlignment(.center).padding(.top,12)
     }.padding(.horizontal,24).padding(.top,8).padding(.bottom,24)
   }
   private func detail(_ left:String,_ right:String)->some View { HStack {Text(left).foregroundStyle(C.muted);Spacer();Text(right).fontWeight(.medium)}.font(.custom("Inter",size:15)).padding(.vertical,15).overlay(alignment:.bottom){C.border.frame(height:1)} }
@@ -130,11 +128,17 @@ struct BuyerView: View {
       let order=m.orders.first(where:{$0.id == m.selectedOrderID}) ?? m.orders.first
       HStack {Color.clear.frame(width:40,height:40);Spacer();Text(order?.uploaded == true ? "Payment sent" : "Payment queued").font(.custom("Inter",size:16).weight(.semibold));Spacer();Button {m.screen = .home} label:{Image(systemName:"xmark").font(.custom("Inter",size:18)).frame(width:40,height:40).overlay(RoundedRectangle(cornerRadius:3).stroke(C.border))}}
       HStack(spacing:8){Image(systemName:order?.status == "settled" ? "checkmark" : "clock");Text(order?.status == "settled" ? "Confirmed on Arc" : "Pending settlement")}.font(.custom("Inter",size:13).weight(.medium)).foregroundStyle(order?.status == "settled" ? C.green : C.muted).padding(.horizontal,12).padding(.vertical,7).background(order?.status == "settled" ? Color(red:14/255,green:26/255,blue:19/255) : C.surface,in:RoundedRectangle(cornerRadius:3)).overlay(RoundedRectangle(cornerRadius:3).stroke(order?.status == "settled" ? Color(red:30/255,green:58/255,blue:42/255) : C.border)).padding(.top,32)
-      Text("Show this to the vendor").font(.custom("Inter",size:26).weight(.semibold)).tracking(-0.8).padding(.top,16)
-      Text("They can scan your signed payment.").font(.custom("Inter",size:15)).foregroundStyle(C.muted).padding(.top,6)
-      if let order, let data=try? JSONEncoder().encode(order.send), let json=String(data:data,encoding:.utf8),let image=qr(json){Image(uiImage:image).interpolation(.none).resizable().frame(width:232,height:232).padding(18).background(C.fg,in:RoundedRectangle(cornerRadius:6)).padding(.top,26)}
+      Text(order?.proofJSON == nil ? "Show this to the vendor" : "Payment completed").font(.custom("Inter",size:26).weight(.semibold)).tracking(-0.8).padding(.top,16)
+      Text(order?.proofJSON == nil ? "They can scan both signed payment intents." : "The offline vendor can scan this Arc proof.").font(.custom("Inter",size:15)).foregroundStyle(C.muted).padding(.top,6)
+      if let order,let proofJSON=order.proofJSON {
+        let frames=proofFrames(proofJSON,id:order.id)
+        if !frames.isEmpty {TimelineView(.periodic(from:.now,by:1.1)){context in
+          let index=Int(context.date.timeIntervalSince1970/1.1)%frames.count
+          if let image=qr(frames[index]) {VStack {Image(uiImage:image).interpolation(.none).resizable().frame(width:232,height:232).padding(18).background(C.fg,in:RoundedRectangle(cornerRadius:6));Text("Proof frame \(index+1) of \(frames.count)").font(.custom("Inter",size:12)).foregroundStyle(C.muted)}.padding(.top,26)}
+        }}
+      } else if let order, let data=try? JSONEncoder().encode(PaymentPackage(v:2,kind:"payment",receive:order.receive,send:order.send)), let json=String(data:data,encoding:.utf8),let image=qr(json){Image(uiImage:image).interpolation(.none).resizable().frame(width:232,height:232).padding(18).background(C.fg,in:RoundedRectangle(cornerRadius:6)).padding(.top,26)}
       HStack(spacing:5){ForEach(0..<12,id:\.self){i in Capsule().fill(i<7 ? C.fg : Color(red:42/255,green:42/255,blue:47/255)).frame(width:18,height:4)}}.padding(.top,20)
-      Text("Signed QR ready").font(.custom("Inter",size:13)).foregroundStyle(C.muted).padding(.top,10)
+      Text(order?.proofJSON == nil ? "Signed payment QR ready" : "Arc proof ready").font(.custom("Inter",size:13)).foregroundStyle(C.muted).padding(.top,10)
       Spacer()
       Button {m.screen = .home} label:{Text("Done").frame(maxWidth:.infinity).frame(height:54).background(C.surface,in:RoundedRectangle(cornerRadius:3)).overlay(RoundedRectangle(cornerRadius:3).stroke(C.border)).font(.custom("Inter",size:16).weight(.semibold))}
     }.padding(.horizontal,24).padding(.top,8).padding(.bottom,24)
@@ -149,6 +153,7 @@ struct BuyerView: View {
   private var settings:some View {
     NavigationStack {Form {Section("Matcher") {TextField("http://Mac-IP:4173",text:$m.backend).textInputAutocapitalization(.never).autocorrectionDisabled();Button("Connect and sync") {Task {await m.setBackend(m.backend);m.showingSettings=false}}}
       Section("Wallet") {Text(m.address).font(.caption).textSelection(.enabled);HStack{Text("Arc escrow");Spacer();Text(CheckoutModel.money(m.balance)+" USDC")};HStack{Text("Wallet funds");Spacer();Text(CheckoutModel.money(m.walletBalance)+" USDC")};Button("Refresh balance") {Task {await m.refreshBalance()}};Button("Import testnet recovery key") {m.showingSettings=false;m.showingImport=true};Button("Show recovery key") {m.recoveryKey=SecureWallet.read() ?? ""}}
+      if (Decimal(string:m.legacyBalance) ?? 0)>0 {Section("Previous escrow") {HStack{Text("Available to withdraw");Spacer();Text(CheckoutModel.money(m.legacyBalance)+" USDC")};Button("Withdraw to wallet") {Task {await m.withdrawLegacy()}}.disabled(m.busy);Text("After Arc confirms the withdrawal, deposit these funds into the new escrow below.").font(.caption).foregroundStyle(C.muted)}}
       if !m.recoveryKey.isEmpty {Section("Keep this private") {Text(m.recoveryKey).font(.caption).textSelection(.enabled)}}
       Section("Prepay escrow") {TextField("Amount in USDC",text:$depositAmount).keyboardType(.decimalPad);Button("Deposit to Arc escrow") {Task {await m.deposit(depositAmount);depositAmount=""}};Text("Deposits use this wallet’s Arc Testnet USDC. Keep a little for network fees.").font(.caption).foregroundStyle(C.muted)}
     }.navigationTitle("Settings").toolbar{ToolbarItem(placement:.topBarTrailing){Button("Done"){m.recoveryKey="";m.showingSettings=false}}}}

@@ -16,7 +16,9 @@ export const escrowAbi=[
   'function DOMAIN_SEPARATOR() view returns (bytes32)',
   'function balanceOf(address) view returns (uint256)',
   'function settled(bytes32) view returns (bool)',
+  'function cancelled(bytes32) view returns (bool)',
   'function orderKey(address,bytes16) pure returns (bytes32)',
+  'function cancelSigned(address vendor,bytes16 id,bytes signature)',
   'function deposit() payable',
   'function withdraw(uint256)',
   'function settle((bytes16 id,address vendor,address payer,uint256 amount,uint64 deadline),bytes,bytes)',
@@ -70,5 +72,12 @@ export function verifyCancel(input,expectedContract){
 export function match(receive,send){
   if(!receive||!send)return false;
   return ['chain','contract','id','vendor','amount','deadline'].every(k=>receive[k]===send[k]);
+}
+export function verifyPackage(input,expectedContract){
+  if(input?.v!==2||input.kind!=='payment')fail('Not a payment package');
+  const receive=verifyReceive(input.receive,expectedContract);
+  const send=verifySend(input.send,expectedContract);
+  if(!match(receive,send))fail('Payment signatures bind different invoices');
+  return {v:2,kind:'payment',receive,send};
 }
 export function intentKey(o){return o.vendor.toLowerCase()+':'+o.id;}

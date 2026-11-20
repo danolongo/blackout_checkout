@@ -11,10 +11,12 @@
     "build": "node scripts/build.mjs"
   },
   "dependencies": {
+    "@ethereumjs/trie": "^6.2.1",
+    "@noble/curves": "^1.9.7",
+    "esbuild": "0.25.12",
     "ethers": "6.17.0",
-    "qrcode": "1.5.4",
     "jsqr": "1.4.0",
-    "esbuild": "0.25.12"
+    "qrcode": "1.5.4"
   },
   "devDependencies": {
     "solc": "0.8.30"

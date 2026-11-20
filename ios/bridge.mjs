@@ -1,4 +1,5 @@
-import {Wallet, verifyTypedData, getAddress} from 'ethers';
+import {Interface,Wallet, verifyTypedData, getAddress} from 'ethers';
+import {verifyPaymentProof} from '../src/proof.mjs';
 const chain = 5042002;
 const receiveTypes = {Receive:[{name:'id',type:'bytes16'},{name:'vendor',type:'address'},{name:'amount',type:'uint256'},{name:'deadline',type:'uint64'}]};
 const sendTypes = {Send:[{name:'id',type:'bytes16'},{name:'vendor',type:'address'},{name:'payer',type:'address'},{name:'amount',type:'uint256'},{name:'deadline',type:'uint64'}]};
@@ -10,10 +11,22 @@ function checkReceive(o,contract){
   return {...o,vendor};
 }
 window.Blackout={
+  validatorSnapshot:(raw,from,to)=>{
+    const iface=new Interface(['function getActiveValidatorSet() view returns ((uint8 status,bytes publicKey,uint64 votingPower)[])']);
+    const validators=iface.decodeFunctionResult('getActiveValidatorSet',raw)[0]
+      .filter(v=>v.status===2n&&v.votingPower>0n)
+      .map(v=>({key:v.publicKey.toLowerCase(),power:String(v.votingPower)}));
+    return JSON.stringify({chain,from:Number(from),to:Number(to),validators});
+  },
+  verifyProof:async (proof,receive,send,snapshot)=>JSON.stringify(await verifyPaymentProof(JSON.parse(proof),JSON.parse(receive),JSON.parse(send),JSON.parse(snapshot))),
   address:key=>new Wallet(key).address,
   signDeposit:async (key,contract,amount,nonce,gasPrice)=>{
     const wallet=new Wallet(key);
     return await wallet.signTransaction({to:getAddress(contract),value:BigInt(amount),data:"0xd0e30db0",nonce:Number(BigInt(nonce)),gasLimit:100000n,gasPrice:BigInt(gasPrice),chainId:chain,type:0});
+  },
+  signWithdraw:async (key,contract,amount,nonce,gasPrice)=>{
+    const data=new Interface(['function withdraw(uint256)']).encodeFunctionData('withdraw',[BigInt(amount)]);
+    return await new Wallet(key).signTransaction({to:getAddress(contract),data,nonce:Number(BigInt(nonce)),gasLimit:120000n,gasPrice:BigInt(gasPrice),chainId:chain,type:0});
   },
   verifyReceive:async (json,contract)=>JSON.stringify(checkReceive(JSON.parse(json),contract)),
   sign:async(key,json,contract)=>{
