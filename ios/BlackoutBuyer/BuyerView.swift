@@ -50,13 +50,19 @@ struct BuyerView: View {
         Spacer()
         Button { m.showingSettings=true } label:{Image(systemName:"gearshape").font(.custom("Inter",size:19)).frame(width:40,height:40).overlay(Circle().stroke(C.border))}
       }.padding(.top,8)
-      Text("Balance").font(.custom("Inter",size:13).weight(.medium)).foregroundStyle(C.muted).padding(.top,32)
+      Text("Available to pay").font(.custom("Inter",size:13).weight(.medium)).foregroundStyle(C.muted).padding(.top,32)
       HStack(alignment:.firstTextBaseline,spacing:10) {
         let parts=m.balanceUSDC.split(separator:".",maxSplits:1)
         (Text(String(parts.first ?? "0"))+Text("."+String(parts.count>1 ? parts[1] : "00")).foregroundColor(Color(red:92/255,green:92/255,blue:100/255)))
           .font(.custom("Inter",size:60).weight(.semibold)).tracking(-2.7).minimumScaleFactor(0.5).lineLimit(1)
         Text("USDC").font(.custom("Inter",size:15).weight(.medium)).foregroundStyle(C.muted)
       }.padding(.top,8)
+      if m.walletBalance != "0" {
+        Text("\(CheckoutModel.money(m.walletBalance)) USDC in wallet · Add to pay")
+          .font(.custom("Inter",size:12))
+          .foregroundStyle(C.muted)
+          .padding(.top,4)
+      }
       HStack(spacing:8) {
         action("Pay","viewfinder") { m.showingScanner=true }
         action("Add","plus") { m.showingSettings=true }
