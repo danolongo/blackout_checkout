@@ -10,7 +10,7 @@ import {get,save,consume,reconciled,allOrders} from './store.mjs';
 // Arc RPC and checkout bytecode hash, fixed at build time (scripts/build.mjs), not taken from the relay.
 const ARC=__ARC__;
 const $=id=>document.getElementById(id), box=$('content'), qr=$('qr');
-let config,order,stream,mode='merchant',scanner=0,busy=false,cacheReady=false,syncing=null;
+let config,order,stream,mode='merchant',scanner=0,busy=false,cacheReady=false,syncing=Promise.resolve(),refresh=null;
 function notice(t,error=false){$('status').textContent=t;$('status').dataset.error=String(error);}
 function el(tag,text){const n=document.createElement(tag);n.textContent=text;return n;}
 function line(text){box.append(el('p',text));}
@@ -18,7 +18,7 @@ function input(label,value='',type='text'){const id='input'+box.children.length,
   l.htmlFor=id;const n=el('input','');n.id=id;n.type=type;n.value=value;box.append(l,n);return n;}
 function button(label,fn){const b=el('button',label);b.onclick=async()=>{b.disabled=true;try{await fn();}catch(e){notice(e.shortMessage||e.message,true);}finally{b.disabled=false;}};box.append(b);return b;}
 function stop(){scanner++;if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;$('camera').hidden=true;$('stop').hidden=true;}
-function view(title,next){stop();mode=next;$('title').textContent=title;box.replaceChildren();qr.hidden=true;notice('');
+function view(title,next){stop();mode=next;refresh=null;$('title').textContent=title;box.replaceChildren();qr.hidden=true;notice('');
   for(const n of ['merchant','customer','sales'])$(n).setAttribute('aria-current',String(n===mode));}
 async function draw(s){await QRCode.toCanvas(qr,s,{width:420,margin:4,errorCorrectionLevel:'L'});qr.hidden=false;}
 async function scan(fn){
@@ -50,7 +50,7 @@ async function takeProof(text,scanMs){
   view('Payment accepted','merchant');line(formatUnits(target.amount,18)+' test USDC');
   notice(MODES[bundle.receipt.mode]+' · verified on this register\nScan '+seconds(scanMs)+' · check '+verifyMs+' ms');
   button('New sale',merchant);button('View sale',()=>sale(target.id));
-  if(navigator.onLine)reconcileAll().catch(()=>{});
+  reconcileQuietly();
 }
 async function merchant(){
   view('Open register','merchant');const addr=input('Vendor wallet',await get('settings','vendor')||'');
@@ -104,29 +104,35 @@ const when=t=>new Date(t).toLocaleString();
 function field(list,name,value){if(value==null)return;const row=el('div','');row.append(el('dt',name));
   const d=el('dd','');d.append(value instanceof Node?value:document.createTextNode(String(value)));row.append(d);list.append(row);}
 // Rechecks every accepted sale against Arc directly, independent of the relay that signed the receipts.
-function reconcileAll(only){
-  syncing??=(async()=>{
-    const all=await allOrders(),paid=all.filter(o=>o.status==='paid'&&(!only||o.id===only));
-    if(!paid.length)return 0;
-    const provider=arcProvider(ARC.rpc,15000);
+// Passes run one after another, so each request gets a full pass that starts after it was made. A sale
+// Arc could not answer for keeps its previous result while the rest are still checked.
+function reconcileAll(){
+  const pass=async()=>{
+    const paid=(await allOrders()).filter(o=>o.status==='paid'),provider=arcProvider(ARC.rpc,15000);
+    let failure=null;
     for(const o of paid){
-      await reconciled(o.id,await reconcileSale(provider,o,ARC.codeHash));
+      try{await reconciled(o.id,await reconcileSale(provider,o,ARC.codeHash));}catch(e){failure??=e;}
     }
+    if(failure)throw failure;
     return paid.length;
-  })().finally(()=>{syncing=null;});
-  return syncing;
+  };
+  return syncing=syncing.catch(()=>{}).then(pass);
 }
-function reconcileButton(label,id,after){
+// Checks in the background and redraws whichever sales screen is open.
+function reconcileQuietly(){
+  if(config&&navigator.onLine)reconcileAll().catch(()=>{}).then(()=>refresh?.()).catch(()=>{});
+}
+function reconcileButton(label,after){
   button(label,async()=>{
     if(!navigator.onLine)throw Error('Reconnect this register to check sales against Arc');
     notice('Checking against Arc…');
-    try{await reconcileAll(id);}
-    catch(e){throw Error('Could not read Arc ('+(e.shortMessage||e.message)+'). Unchecked sales stay unchecked.');}
+    try{await reconcileAll();}
+    catch(e){await after();throw Error('Some sales could not be checked ('+(e.shortMessage||e.message)+'). They keep their previous result.');}
     await after();
   });
 }
 async function sales(){
-  view('Register sales','sales');const orders=(await allOrders()).sort((a,b)=>b.created-a.created);
+  view('Register sales','sales');refresh=sales;const orders=(await allOrders()).sort((a,b)=>b.created-a.created);
   if(!orders.length)return line('No sales yet.');
   const count=state=>orders.filter(o=>stateOf(o)===state).length,plural=(n,one,many)=>n+' '+(n>1?many:one);
   const flagged=count('discrepancy'),unchecked=count('unchecked')+count('pending'),confirmed=count('confirmed');
@@ -134,7 +140,7 @@ async function sales(){
     :unchecked?['unchecked',plural(unchecked,'sale is','sales are')+' not yet confirmed on Arc']
     :confirmed?['confirmed',plural(confirmed,'accepted sale','accepted sales')+' confirmed on Arc']:[];
   if(summary){const badge=el('p',summary);badge.className='badge';badge.dataset.state=overall;box.append(badge);
-    reconcileButton('Check all sales against Arc',null,sales);}
+    reconcileButton('Check all sales against Arc',sales);}
   for(const o of orders){
     const state=stateOf(o),item=el('button','');item.className='sale';item.dataset.state=state;
     item.append(el('strong',formatUnits(o.amount,18)+' test USDC'),el('span',STATES[state]),
@@ -144,7 +150,7 @@ async function sales(){
 }
 async function sale(id){
   const o=await get('orders',id);if(!o)throw Error('Unknown sale');
-  view('Sale '+formatUnits(o.amount,18)+' USDC','sales');const state=stateOf(o),r=o.bundle?.receipt,list=el('dl','');
+  view('Sale '+formatUnits(o.amount,18)+' USDC','sales');refresh=()=>sale(id);const state=stateOf(o),r=o.bundle?.receipt,list=el('dl','');
   const badge=el('p',STATES[state]);badge.className='badge';badge.dataset.state=state;box.append(badge);
   if(o.reconciliation?.issues?.length){const issues=el('ul','');issues.className='issues';issues.dataset.state=state;for(const i of o.reconciliation.issues)issues.append(el('li',i));box.append(issues);}
   field(list,'Order',o.id);field(list,'Vendor',o.vendor);field(list,'Created',when(o.created*1000));
@@ -156,19 +162,19 @@ async function sale(id){
     field(list,'Last Arc check',o.reconciliation&&when(o.reconciliation.checkedAt));
   }
   box.append(list);
-  if(o.status==='paid')reconcileButton('Check against Arc',id,async()=>{await sale(id);notice('Checked against Arc at '+when(Date.now()));});
+  if(o.status==='paid')reconcileButton('Check against Arc',async()=>{await sale(id);notice('Checked against Arc at '+when(Date.now()));});
   button('All sales',sales);
 }
 function route(fn){return ()=>fn().catch(e=>notice(e.message,true));}
 $('merchant').onclick=route(merchant);$('customer').onclick=route(()=>customer());$('sales').onclick=route(sales);$('stop').onclick=stop;
 // Reconnecting the register reconciles accepted sales without the cashier asking.
-addEventListener('online',()=>{if(config)reconcileAll().then(n=>{if(n&&mode==='sales')return sales();}).catch(()=>{});});
+addEventListener('online',reconcileQuietly);
 async function init(){
   config=await get('settings','config');
   if(!config){try{config=await api('/api/config');await save('settings','config',config);}catch{notice('Connect once to set up this register',true);return;}}
   if('serviceWorker' in navigator){await navigator.serviceWorker.register('/sw.js');await navigator.serviceWorker.ready;cacheReady=true;}
   if(location.hash.startsWith('#order='))return customer(parseOrder(location.href));
   await merchant();
-  if(navigator.onLine)reconcileAll().catch(()=>{});
+  reconcileQuietly();
 }
 init().catch(e=>notice(e.message,true));
