@@ -1,26 +1,79 @@
 # Echo
 
-Echo is an Arc Testnet checkout where the merchant web app and buyer iPhone app can both be offline during the QR handoff. The merchant signs an invoice QR; the buyer checks it, signs the same terms, and returns one QR containing both signatures. Each device then has the complete payment package. Whichever reconnects first uploads it to the always-on matcher, which settles prepaid native test USDC from the buyer's Arc escrow to the merchant on chain.
+Echo is an Arc Testnet checkout where a merchant and buyer exchange signed QR codes while both devices are offline. Either device can later reconnect and submit the payment. A signed QR means **pending**; only Arc settlement means **paid**.
 
-**A signed QR is pending, not paid.** After settlement, the online device displays an animated proof QR. The offline device reconstructs the proof and checks Arc validator precommits, receipt inclusion, and the exact `OrderPaid` event before showing Completed. A transaction hash alone is never treated as offline proof. If the buyer's escrow is too low when settlement runs, the order stays pending. The [queued payment option](OFFLINE_PAYMENT_PLAN.md) without escrow is a future plan.
+## System architecture
 
-## Run locally
+```mermaid
+flowchart LR
+    M[Merchant web app<br/>invoice and local queue] <-->|Invoice QR →<br/>← signed payment QR<br/>proof QR| B[Buyer iPhone app<br/>wallet and local queue]
+    M -->|Invoice or complete package| R[Matcher / relayer<br/>persistent queue]
+    B -->|Complete package| R
+    R -->|settle with both signatures| C[Arc checkout contract<br/>buyer escrow → merchant wallet]
+    C -->|receipt and OrderPaid| R
+    R -->|status and Arc proof| M
+    R -->|status and Arc proof| B
+    A[Arc public RPC and validator registry] -->|validator checkpoint| M
+    A -->|validator checkpoint| B
+    A -->|block certificate and receipts| R
+```
 
-Use Node 22 or newer. Run `npm ci`, `npm run compile`, and `npm run build`. Set `CHECKOUT_ADDRESS` to the deployed checkout contract and `MATCHER_PRIVATE_KEY` to a funded Arc Testnet wallet, then run `npm start`. The matcher listens on port 4173 by default and stores its queue in ignored `runtime/matches.json`. Keep the matcher key in an ignored file or secret manager.
+The merchant app signs invoices and saves sales in browser storage. The buyer app keeps its wallet in iOS Keychain and saves signed orders on the phone. Both cache the checkout configuration and an Arc validator checkpoint while online. The QR exchange itself needs no network connection.
 
-Open **http://localhost:4173** on the merchant Mac for local development, or use the [new hosted demo](https://blackout-next.64-177-121-208.sslip.io/). The web app creates invoices, scans the buyer's return QR with the Mac camera or a QR image, and shows Sales, wallet balance, and receipts. Open it online once so its offline assets and validator checkpoint are cached. Back up the merchant testnet recovery key in Settings before clearing browser storage. An unscanned invoice can be cancelled while online; cancellation is recorded on the contract, so direct settlement cannot bypass it.
+The matcher accepts signed intents, keeps a durable queue, submits settlement transactions, and serves status and proof data. Its funded wallet pays the settlement network fee; it does not hold either user's signing key or escrow. The contract holds the buyer's prepaid native test USDC, checks both signatures, and pays the merchant wallet directly.
 
-Open [the iPhone project](ios/BlackoutBuyer.xcodeproj) in Xcode, select your phone and signing team, and Run. The buyer app defaults to the hosted matcher and asks for confirmation after scanning an invoice. The iOS app stores its wallet in Keychain. Get Arc Testnet USDC from Circle's faucet for that wallet, then use **Add → Deposit to Arc escrow** while online. Keep a little in the wallet for Arc network fees. See [iOS setup](ios/README.md) for details.
+### Payment and intent flow
 
-## Demo
+1. **Prepay.** While online, the buyer deposits Arc Testnet USDC into the checkout contract. The buyer can withdraw its own escrow balance and keeps some USDC in the wallet for deposit and withdrawal fees.
+2. **Create invoice.** The merchant signs an EIP-712 `Receive` intent with a fresh 16-byte order ID, merchant address, amount, and deadline. The QR also names the Arc chain and checkout contract. New invoices have a 24-hour deadline.
+3. **Approve payment.** The buyer scans the invoice, verifies the merchant signature, reviews the terms, and signs a `Send` intent for the same ID, merchant, amount, and deadline plus its own payer address. The phone checks its cached escrow balance minus locally pending orders before signing. Its return QR carries **both** signed intents as a payment package.
+4. **Match locally.** The merchant scans the return QR and checks both signatures against its saved invoice. Both devices now hold the complete package. They remain pending until Arc settles it.
+5. **Upload from either side.** On reconnection, either device posts the complete package to the matcher. The merchant may also upload its invoice alone earlier; a separate buyer upload is unnecessary once either side submits the package.
+6. **Settle on Arc.** The matcher checks the signatures and terms and calls `settle` with both signatures. The contract enforces the deadline, cancellation and replay state, escrow balance, and exact signers. It debits buyer escrow, transfers USDC to the merchant, and emits `OrderPaid`.
+7. **Confirm.** The online device gets the settled status and a proof. It can show animated proof QR frames to the still-offline device, which verifies the payment before showing Completed.
 
-1. Prepare the buyer's Arc escrow and open both apps online once.
-2. Take both devices offline. Create an invoice on the merchant web app and scan its QR with the buyer iPhone.
-3. Confirm the signed terms on iPhone. Show the buyer's return QR to the merchant camera. Both devices show a pending state.
-4. Reconnect either device. It uploads both signatures and the matcher submits the payment. The connected device displays animated Arc proof QR frames. The offline device scans them and verifies the proof before showing Completed.
+The EIP-712 signing domain remains `Blackout Checkout` version `2` in the deployed contract and clients. Echo is the product name; changing the domain would invalidate signatures.
 
-The new cancellation-safe contract is [`0xd132eA8D7cADD65B92be0B616Ae65Bbf6F0Af037`](https://explorer.testnet.arc.io/address/0xd132eA8D7cADD65B92be0B616Ae65Bbf6F0Af037). The earlier escrow is [`0x38929cCE8c5914755587d41Bf78B9ccC401AAc4d`](https://explorer.testnet.arc.io/address/0x38929cCE8c5914755587d41Bf78B9ccC401AAc4d). Funds in it do not move to the new contract automatically. The iPhone home screen shows the previous escrow separately and offers **Move**, which withdraws and redeposits after Arc confirms. If redeposit fails, the funds remain in the buyer wallet and can be deposited from Settings. The earlier demo remains available at its old URL.
+### Queues and states
 
-Offline proof verification requires a validator checkpoint cached before disconnecting. Both clients compare the matcher's checkpoint with Arc's public RPC over HTTPS before caching it. The checkpoint covers only the next 1,800 blocks. **This testnet demo assumes the validator set stays unchanged during that window.** It does not yet prove validator-set transitions; production use needs a chain of authenticated transitions or another trusted checkpoint authority. Outside the cached window, verification fails closed.
+Both apps save signed orders locally before upload and retry when online. The merchant uses browser storage, and the buyer persists orders on the phone. Clearing browser storage or removing the iPhone app removes that device's local queue. The buyer's cached balance helps prevent oversigning but does not reserve funds on chain; the contract checks the actual escrow balance at settlement.
 
-Run `npm test` and `forge test` for the intent matcher and escrow contract checks.
+The matcher stores its queue in `runtime/matches.json` by default, keyed by merchant address and order ID. It serializes queue operations and writes through a temporary file rename. `/api/intents` accepts a single signed intent; `/api/package` accepts both. Conflicting terms or signatures for an existing order are rejected. A processing pass runs after uploads and every 10 seconds. It checks Arc cancellation, prior settlement, and buyer funds, submits a transaction, then watches its receipt. A stored transaction hash prevents duplicate submission while that transaction is pending.
+
+| State | Meaning |
+| --- | --- |
+| Local / waiting | A signed intent exists, but the payment has not settled. |
+| Matched | Both signatures reached the matcher; settlement is next. |
+| Awaiting funds / retrying | Escrow is short or submission failed; the matcher retries before expiry. |
+| Submitted | Transaction sent; Arc confirmation is pending. |
+| Settled | Successful Arc receipt for the payment. |
+| Expired / cancelled / failed | The current payment cannot complete. |
+
+An unscanned invoice can be cancelled online with a merchant-signed `Cancel` intent. The matcher records the cancellation on chain, so direct settlement cannot bypass it. Once a buyer payment is received, this cancellation flow is closed. The contract prevents a paid order from being replayed. Anyone can relay valid signatures, but cannot change their terms or redirect the payout.
+
+### Proof on the offline device
+
+After settlement, `/api/settlement-proof` builds a proof from the Arc block certificate, block header, transaction receipt, and receipt inclusion path. The online app displays it across animated QR frames. The offline app reassembles them, verifies validator precommits with more than two-thirds voting power, checks the block hash and height and receipt inclusion, and matches the successful `OrderPaid` log to its locally saved signatures. A transaction hash or matcher status alone is not offline proof.
+
+Before disconnecting, both apps compare the matcher's validator checkpoint with Arc's public RPC and cache it. The checkpoint covers the next 1,800 blocks. This testnet demo assumes the validator set stays unchanged in that window; it does not prove validator-set transitions. Verification fails outside the cached window.
+
+## Run and demo
+
+Use Node 22 or newer:
+
+```sh
+npm ci
+npm run compile
+npm run build
+CHECKOUT_ADDRESS=0xd132eA8D7cADD65B92be0B616Ae65Bbf6F0Af037 MATCHER_PRIVATE_KEY_FILE=/path/to/matcher-key npm start
+```
+
+The matcher serves the merchant app at `http://localhost:4173` by default. It uses `ARC_RPC` (default `https://rpc.testnet.arc.io`); `MATCHER_STATE_FILE` changes the queue path. Keep the funded matcher key outside the repository. The [hosted demo](https://blackout-next.64-177-121-208.sslip.io/) uses this checkout flow.
+
+Open the merchant app online once to cache its assets and validator checkpoint. Back up its recovery key in Settings before clearing browser storage. Open the [iPhone project](ios/BlackoutBuyer.xcodeproj) in Xcode, select a phone and signing team, and Run; see [iOS setup](ios/README.md). Fund the buyer from Circle's Arc Testnet faucet, then use **Add → Deposit to Arc escrow** while online.
+
+To demo: prepare escrow, disconnect both devices, create and scan an invoice, approve it on iPhone, and scan the return QR on the merchant device. Reconnect **either** device to settle. Show its animated proof QR to the offline device for verification.
+
+The active contract is [`0xd132eA8D7cADD65B92be0B616Ae65Bbf6F0Af037`](https://explorer.testnet.arc.io/address/0xd132eA8D7cADD65B92be0B616Ae65Bbf6F0Af037). Funds in the [earlier escrow](https://explorer.testnet.arc.io/address/0x38929cCE8c5914755587d41Bf78B9ccC401AAc4d) do not move automatically; the iPhone app shows that balance separately and offers **Move** while online.
+
+Run `npm test` and `forge test` for the intent, matcher, proof, and contract checks. The [queued payment plan](OFFLINE_PAYMENT_PLAN.md) without prepaid escrow is future work.
