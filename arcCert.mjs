@@ -1,10 +1,7 @@
 // Offline verifier for Arc commit certificates (arc_getCertificate).
 // Mirrors arc-node's Vote::to_sign_bytes (SSZ) + Malachite verify_commit_certificate.
-import * as ed from '@noble/ed25519';
-import { sha512 } from '@noble/hashes/sha512';
-import { keccak_256 } from '@noble/hashes/sha3';
-
-ed.etc.sha512Sync = (...m) => sha512(ed.etc.concatBytes(...m));
+import { ed25519 } from '@noble/curves/ed25519';
+import { keccak256 } from 'ethers';
 
 export const hexToBytes = (h) => {
   const s = h.startsWith('0x') ? h.slice(2) : h;
@@ -14,7 +11,7 @@ export const hexToBytes = (h) => {
 export const bytesToHex = (b) => [...b].map((x) => x.toString(16).padStart(2, '0')).join('');
 
 /** Validator address = first 20 bytes of keccak256(ed25519 pubkey). */
-export const addressFromPubkey = (pk) => keccak_256(pk).slice(0, 20);
+export const addressFromPubkey = (pk) => hexToBytes(keccak256(pk).slice(2, 42));
 
 const u64le = (n) => {
   const b = new Uint8Array(8);
@@ -85,7 +82,7 @@ export function verifyCommitCertificate(cert, validators) {
       blockHash: cert.block_hash,
       validatorAddress: hexToBytes(addrHex),
     });
-    if (!ed.verify(sig, msg, v.pk)) return { ok: false, reason: `invalid signature from ${addrHex}` };
+    if (!ed25519.verify(sig, msg, v.pk, { zip215: false })) return { ok: false, reason: `invalid signature from ${addrHex}` };
     signed += v.power;
   }
   // Malachite TWO_F_PLUS_ONE: signed * 3 > total * 2

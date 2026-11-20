@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import * as ed from '@noble/ed25519';
+import { randomBytes } from 'node:crypto';
+import { ed25519 } from '@noble/curves/ed25519';
 import { precommitSignBytes, verifyCommitCertificate, addressFromPubkey, hexToBytes, bytesToHex } from './arcCert.mjs';
 
 // Golden vector produced by arc-node's real Rust Vote::to_sign_bytes + Ed25519 signer
@@ -18,7 +19,7 @@ assert.equal(bytesToHex(addressFromPubkey(hexToBytes(G.pubkey))), G.address);
 const sb = precommitSignBytes({ height: 12345, round: 2, blockHash, validatorAddress: hexToBytes(G.address) });
 assert.equal(bytesToHex(sb), G.signBytes);
 // 3. signature verifies in JS
-assert.ok(ed.verify(hexToBytes(G.signature), sb, hexToBytes(G.pubkey)));
+assert.ok(ed25519.verify(hexToBytes(G.signature), sb, hexToBytes(G.pubkey), { zip215: false }));
 
 const vset = [{ publicKey: G.pubkey, votingPower: 100 }];
 const cert = { height: 12345, round: 2, block_hash: blockHash, signatures: [{ address: '0x' + G.address, signature: b64(G.signature) }] };
@@ -30,7 +31,7 @@ assert.equal(verifyCommitCertificate({ ...cert, height: 12346 }, vset).ok, false
 assert.equal(verifyCommitCertificate({ ...cert, round: 3 }, vset).ok, false);                            // wrong round
 assert.match(verifyCommitCertificate({ ...cert, signatures: [...cert.signatures, ...cert.signatures] }, vset).reason, /duplicate/);
 // 6. quorum: signer has 2/3 exactly of power -> NOT enough (needs >2/3)
-const sk2 = ed.utils.randomPrivateKey(); const pk2 = bytesToHex(ed.getPublicKey(sk2));
+const sk2 = randomBytes(32); const pk2 = bytesToHex(ed25519.getPublicKey(sk2));
 assert.equal(verifyCommitCertificate(cert, [{ publicKey: G.pubkey, votingPower: 2 }, { publicKey: pk2, votingPower: 1 }]).ok, false);
 assert.equal(verifyCommitCertificate(cert, [{ publicKey: G.pubkey, votingPower: 3 }, { publicKey: pk2, votingPower: 1 }]).ok, true);
 console.log('ALL GOLDEN TESTS PASSED');

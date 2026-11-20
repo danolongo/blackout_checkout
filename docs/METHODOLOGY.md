@@ -96,7 +96,7 @@ A branch is **green** only when every item passes:
 | Lint | `pnpm -r lint` (zero warnings) |
 | Unit tests | `pnpm -r test` (vitest) |
 | Contract tests | `forge test` in `packages/contracts` |
-| Golden vector | `packages/arc-proof` golden test passes (must never regress) |
+| Golden vector | `golden.test.mjs` passes through `npm test` (must never regress) |
 | Fixture tests | Live-fixture certificate and header tests pass |
 | End-to-end | `pnpm e2e` (Playwright) for every phase that touches an app |
 | Build | `pnpm -r build` |
