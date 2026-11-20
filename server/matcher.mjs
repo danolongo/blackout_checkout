@@ -1,7 +1,7 @@
 import {mkdir,readFile,rename,writeFile} from 'node:fs/promises';
 import {dirname} from 'node:path';
 import {Contract,Wallet} from 'ethers';
-import {escrowAbi,intentKey,match,verifyReceive,verifySend} from '../src/intents.mjs';
+import {escrowAbi,intentKey,match,verifyCancel,verifyReceive,verifySend} from '../src/intents.mjs';
 
 export class Matcher {
   constructor({provider,contract,key,file='runtime/matches.json'}){
@@ -31,6 +31,7 @@ export class Matcher {
     const intent=raw?.kind==='receive'?verifyReceive(raw,this.contractAddress):verifySend(raw,this.contractAddress);
     return this.queue(async()=>{
       const key=intentKey(intent),entry=this.entries[key]||{status:'waiting',updated:Date.now()};
+      if(entry.status==='cancelled')return this.status(key);
       if(!this.entries[key]&&Object.keys(this.entries).length>=10000)throw Error('Matcher queue full');
       const old=entry[intent.kind];
       if(old&&JSON.stringify(old)!==JSON.stringify(intent))throw Error('Conflicting intent for this order');
@@ -45,6 +46,18 @@ export class Matcher {
       return this.status(key);
     });
   }
+  async cancel(raw){
+    const cancellation=verifyCancel(raw,this.contractAddress);
+    return this.queue(async()=>{
+      const key=intentKey(cancellation),entry=this.entries[key]||{updated:Date.now()};
+      if(!this.entries[key]&&Object.keys(this.entries).length>=10000)throw Error('Matcher queue full');
+      if(entry.send||entry.txHash||['matched','submitted','settled','external_settlement'].includes(entry.status))
+        throw Error('Customer payment already received; this invoice cannot be cancelled');
+      entry.status='cancelled';entry.error=null;entry.updated=Date.now();
+      this.entries[key]=entry;await this.persist();
+      return this.status(key);
+    });
+  }
   status(key){
     const entry=this.entries[key];
     if(!entry)return {status:'unknown'};
@@ -53,7 +66,7 @@ export class Matcher {
   async process(){
     return this.queue(async()=>{
       for(const [key,entry] of Object.entries(this.entries)){
-        if(!entry.receive||!entry.send||entry.status==='settled'||entry.status==='expired'||entry.status==='external_settlement')continue;
+        if(!entry.receive||!entry.send||entry.status==='settled'||entry.status==='expired'||entry.status==='cancelled'||entry.status==='external_settlement')continue;
         const o=entry.send;
         if(entry.txHash){
           try{

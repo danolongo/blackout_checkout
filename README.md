@@ -8,9 +8,9 @@ Blackout Checkout is an Arc Testnet checkout where the merchant web app and buye
 
 Use Node 22 or newer. Run `npm ci`, `npm run compile`, and `npm run build`. Set `CHECKOUT_ADDRESS` to the deployed checkout contract and `MATCHER_PRIVATE_KEY` to a funded Arc Testnet wallet, then run `npm start`. The matcher listens on port 4173 by default and stores its queue in ignored `runtime/matches.json`. Keep the matcher key in an ignored file or secret manager.
 
-Open **http://localhost:4173** on the merchant Mac. The web app is merchant only; it creates invoices, scans the buyer's return QR with the Mac camera, and shows Sales and receipts. Open it online once so its offline assets are cached. Back up the merchant testnet recovery key in Settings before clearing browser storage.
+Open **http://localhost:4173** on the merchant Mac for local development, or use the [hosted demo](https://blackout.64-177-121-208.sslip.io/). The web app creates invoices, scans the buyer's return QR with the Mac camera or a QR image, and shows Sales, wallet balance, and receipts. Open it online once so its offline assets are cached. Back up the merchant testnet recovery key in Settings before clearing browser storage. An unscanned invoice can be cancelled while online; the matcher keeps a cancellation record so later uploads cannot pay it.
 
-Open [the iPhone project](ios/BlackoutBuyer.xcodeproj) in Xcode, select your phone and signing team, and Run. In the buyer app's Settings, enter `http://<Mac LAN IP>:4173`; both devices must be on the same Wi-Fi when syncing. The iOS app stores its wallet in Keychain. Get Arc Testnet USDC from Circle's faucet for that wallet, then use **Add → Deposit to Arc escrow** while online. Keep a little in the wallet for Arc network fees. See [iOS setup](ios/README.md) for details.
+Open [the iPhone project](ios/BlackoutBuyer.xcodeproj) in Xcode, select your phone and signing team, and Run. The buyer app defaults to the hosted matcher and asks for confirmation after scanning an invoice. The iOS app stores its wallet in Keychain. Get Arc Testnet USDC from Circle's faucet for that wallet, then use **Add → Deposit to Arc escrow** while online. Keep a little in the wallet for Arc network fees. See [iOS setup](ios/README.md) for details.
 
 ## Demo
 
@@ -19,6 +19,6 @@ Open [the iPhone project](ios/BlackoutBuyer.xcodeproj) in Xcode, select your pho
 3. Confirm the signed terms on iPhone. Show the buyer's return QR to the merchant camera. Both devices show a pending state.
 4. Reconnect either device first; its intent waits in the matcher. Reconnect the other; the matcher submits the matched order to Arc. Both sides show verified only after settlement.
 
-The deployed contract is [`0x38929cCE8c5914755587d41Bf78B9ccC401AAc4d`](https://explorer.testnet.arc.io/address/0x38929cCE8c5914755587d41Bf78B9ccC401AAc4d). A prior scripted two-signature [settlement succeeded on Arc Testnet](https://explorer.testnet.arc.io/tx/0xe10e6f3f550d4b8099839464ed7ad7a0c6ed978027d6f3422fb9ad08d78dcb12). That transaction did not use the new iPhone app; the physical-phone camera and Arc deposit still need the planned phone rehearsal.
+The deployed contract is [`0x38929cCE8c5914755587d41Bf78B9ccC401AAc4d`](https://explorer.testnet.arc.io/address/0x38929cCE8c5914755587d41Bf78B9ccC401AAc4d). The matcher runs on a separate Vultr server, so it remains online while both demo devices are offline.
 
 Run `npm test` and `forge test` for the intent matcher and escrow contract checks.

@@ -4,7 +4,7 @@ import {mkdtemp,readFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {Wallet,JsonRpcProvider} from 'ethers';
-import {domain,intentKey,match,receiveTypes,receiveValue,sendTypes,sendValue,verifyReceive,verifySend} from '../src/intents.mjs';
+import {cancelTypes,domain,intentKey,match,receiveTypes,receiveValue,sendTypes,sendValue,verifyReceive,verifySend} from '../src/intents.mjs';
 import {Matcher} from '../server/matcher.mjs';
 
 const vendor=Wallet.createRandom(),payer=Wallet.createRandom(),contract=Wallet.createRandom().address;
@@ -51,4 +51,21 @@ test('matcher waits for both uploads and persists a submitted Arc transaction',a
   await matcher.process();assert.equal(matcher.status(intentKey(send)).status,'settled');
   const persisted=JSON.parse(await readFile(file));assert.equal(persisted[intentKey(send)].status,'settled');
   await assert.rejects(matcher.submit({...send,amount:'2'}),/signature/);
+});
+test('merchant cancellation blocks later uploads but cannot cancel a buyer payment',async()=>{
+  const {receive,send}=await pair(),folder=await mkdtemp(join(tmpdir(),'blackout-cancel-'));
+  const file=join(folder,'matches.json'),provider=new JsonRpcProvider('http://127.0.0.1:1');
+  const matcher=new Matcher({provider,contract,key:Wallet.createRandom().privateKey,file});
+  await matcher.load();
+  const cancel={v:2,kind:'cancel',chain:5042002,contract,id:receive.id,vendor:vendor.address,
+    signature:await vendor.signTypedData(domain(contract),cancelTypes,{id:receive.id,vendor:vendor.address})};
+  await matcher.submit(receive);
+  assert.equal((await matcher.cancel(cancel)).status,'cancelled');
+  assert.equal((await matcher.submit(send)).status,'cancelled');
+  assert.equal((await matcher.submit(receive)).status,'cancelled');
+  assert.equal(JSON.parse(await readFile(file))[intentKey(receive)].status,'cancelled');
+  await assert.rejects(matcher.cancel({...cancel,vendor:payer.address}),/signature/);
+  const second=new Matcher({provider,contract,key:Wallet.createRandom().privateKey,file:join(folder,'other.json')});
+  await second.load();await second.submit(send);
+  await assert.rejects(second.cancel(cancel),/Customer payment already received/);
 });

@@ -1,6 +1,6 @@
 # Blackout buyer for iPhone
 
-Open `BlackoutBuyer.xcodeproj` in Xcode, choose your iPhone and personal signing team, then Run. In Settings, set the matcher to `http://<your Mac LAN IP>:4173` while both devices share Wi-Fi. Open the app online once to cache the contract configuration. The Mac matcher must be running.
+Open `BlackoutBuyer.xcodeproj` in Xcode, choose your iPhone and personal signing team, then Run. The app defaults to `https://blackout.64-177-121-208.sslip.io`. Open it online once to cache the contract configuration. The matcher runs on a separate Vultr server, so the Mac can go offline during the demo.
 
 The wallet key lives in iOS Keychain; Settings can show or import the recovery key. Use Circle's Arc Testnet faucet to fund this wallet, then use **Add → Deposit to Arc escrow**. Keep a little test USDC in the wallet for gas. The home Balance is prepaid escrow, not the wallet's uncommitted on-chain balance.
 

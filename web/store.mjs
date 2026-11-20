@@ -13,6 +13,11 @@ export async function save(store,key,value){
   return new Promise((resolve,reject)=>{const t=db.transaction(store,'readwrite');t.objectStore(store).put(value,key);
     t.oncomplete=resolve;t.onerror=()=>reject(t.error);});
 }
+export async function remove(store,key){
+  const db=await opening;
+  return new Promise((resolve,reject)=>{const t=db.transaction(store,'readwrite');t.objectStore(store).delete(key);
+    t.oncomplete=resolve;t.onerror=()=>reject(t.error);});
+}
 export async function allOrders(){
   const db=await opening;
   return new Promise((resolve,reject)=>{const r=db.transaction('orders').objectStore('orders').getAll();

@@ -9,6 +9,9 @@ export const sendTypes={Send:[
   {name:'id',type:'bytes16'},{name:'vendor',type:'address'},
   {name:'payer',type:'address'},{name:'amount',type:'uint256'},{name:'deadline',type:'uint64'}
 ]};
+export const cancelTypes={Cancel:[
+  {name:'id',type:'bytes16'},{name:'vendor',type:'address'}
+]};
 export const escrowAbi=[
   'function DOMAIN_SEPARATOR() view returns (bytes32)',
   'function balanceOf(address) view returns (uint256)',
@@ -55,6 +58,14 @@ export function verifySend(input,expectedContract){
   const o=normalizeSend(input,expectedContract);
   if(verifyTypedData(domain(o.contract),sendTypes,sendValue(o),o.signature)!==o.payer)fail('Invalid customer signature');
   return o;
+}
+export function verifyCancel(input,expectedContract){
+  if(!input||input.v!==2||input.kind!=='cancel'||input.chain!==CHAIN||!isHexString(input.id,16)||BigInt(input.id)===0n)fail('Invalid cancellation');
+  const contract=address(input.contract),vendor=address(input.vendor),id=input.id.toLowerCase();
+  if(expectedContract&&contract!==address(expectedContract))fail('Wrong checkout contract');
+  const signed=signature(input.signature);
+  if(verifyTypedData(domain(contract),cancelTypes,{id,vendor},signed)!==vendor)fail('Invalid merchant signature');
+  return {v:2,kind:'cancel',chain:CHAIN,contract,id,vendor,signature:signed};
 }
 export function match(receive,send){
   if(!receive||!send)return false;

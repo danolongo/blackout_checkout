@@ -32,7 +32,14 @@ struct ServerState: Codable { let status: String; let txHash: String?; let error
   @Published var screen: Screen = .home
   @Published var message: String?
   @Published var busy = false
-  @Published var backend = UserDefaults.standard.string(forKey:"backend") ?? "http://192.168.1.64:4173"
+  static let hostedBackend = "https://blackout.64-177-121-208.sslip.io"
+  @Published var backend: String = {
+    let saved = UserDefaults.standard.string(forKey:"backend") ?? ""
+    if saved.isEmpty || saved.contains("trycloudflare.com") || saved == "http://192.168.1.64:4173" {
+      return hostedBackend
+    }
+    return saved
+  }()
   @Published var showingSettings = false
   @Published var showingScanner = false
   @Published var showingImport = false
@@ -40,6 +47,7 @@ struct ServerState: Codable { let status: String; let txHash: String?; let error
   private var monitor: NWPathMonitor?
   enum Screen { case home, confirm, proof, activity }
   init() {
+    UserDefaults.standard.set(backend,forKey:"backend")
     if let data = UserDefaults.standard.data(forKey:"orders"), let stored = try? JSONDecoder().decode([Order].self,from:data) { orders = stored }
     if let data = UserDefaults.standard.data(forKey:"config"), let stored = try? JSONDecoder().decode(Config.self,from:data) { config = stored }
     balance = UserDefaults.standard.string(forKey:"escrowBalance") ?? "0"

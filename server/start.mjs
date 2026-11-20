@@ -5,6 +5,7 @@ import {Matcher} from './matcher.mjs';
 import {CHAIN,domain,escrowAbi,intentKey} from '../src/intents.mjs';
 
 const port=Number(process.env.PORT||4173);
+const host=process.env.HOST||'0.0.0.0';
 const contract=getAddress(process.env.CHECKOUT_ADDRESS);
 const key=process.env.MATCHER_PRIVATE_KEY_FILE
   ? (await readFile(process.env.MATCHER_PRIVATE_KEY_FILE,'utf8')).trim()
@@ -25,7 +26,8 @@ if(actual.length!==runtime.length||keccak256(maskImmutables(actual))!==keccak256
 const escrow=new Contract(contract,escrowAbi,provider);
 if(await escrow.DOMAIN_SEPARATOR()!==TypedDataEncoder.hashDomain(domain(contract)))
   throw Error('Checkout signature domain does not match this chain');
-const matcher=new Matcher({provider,contract,key});
+const matcher=new Matcher({provider,contract,key,
+  file:process.env.MATCHER_STATE_FILE||'runtime/matches.json'});
 await matcher.load();
 matcher.process().catch(console.error);
 setInterval(()=>matcher.process().catch(console.error),10000).unref();
@@ -55,10 +57,16 @@ createServer(async(req,res)=>{
       matcher.process().catch(console.error);
       return json(res,200,result);
     }
+    if(path==='/api/cancel'&&req.method==='POST'){
+      if(!sameOrigin(req))return json(res,403,{error:'Same origin required'});
+      return json(res,200,await matcher.cancel(await body(req)));
+    }
     const status=/^\/api\/status\/(0x[\da-fA-F]{40})\/(0x[\da-fA-F]{32})$/.exec(path);
     if(status&&req.method==='GET')return json(res,200,matcher.status(intentKey({vendor:getAddress(status[1]),id:status[2].toLowerCase()})));
     const balance=/^\/api\/balance\/(0x[\da-fA-F]{40})$/.exec(path);
     if(balance&&req.method==='GET')return json(res,200,{balance:String(await escrow.balanceOf(getAddress(balance[1])))});
+    const walletBalance=/^\/api\/wallet-balance\/(0x[\da-fA-F]{40})$/.exec(path);
+    if(walletBalance&&req.method==='GET')return json(res,200,{balance:String(await provider.getBalance(getAddress(walletBalance[1])))});
     if(req.method!=='GET')return json(res,405,{error:'Use GET'});
     const asset=Object.hasOwn(assets,path)&&assets[path];
     if(!asset)return json(res,404,{error:'Unknown route'});
@@ -66,4 +74,4 @@ createServer(async(req,res)=>{
     res.writeHead(200,{'content-type':asset[1],'cache-control':'no-cache','x-content-type-options':'nosniff',
       'referrer-policy':'no-referrer'});res.end(bytes);
   }catch(error){json(res,422,{error:error.shortMessage||error.message});}
-}).listen(port,()=>console.log('Blackout Checkout matcher listening on '+port));
+}).listen(port,host,()=>console.log('Blackout Checkout matcher listening on '+host+':'+port));
