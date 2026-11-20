@@ -4,21 +4,7 @@ Echo is an Arc Testnet checkout where a merchant and buyer exchange signed QR co
 
 ## System architecture
 
-```mermaid
-flowchart TB
-    M["Merchant web app<br/>Signs invoice · saves local order"]
-    B["Buyer iPhone app<br/>Verifies invoice · signs payment"]
-    Q["Both devices hold the signed package<br/>QR handoff works offline"]
-    R["Matcher / relayer<br/>Persistent queue · submits transaction"]
-    C["Arc checkout contract<br/>Checks signatures · pays merchant from buyer escrow"]
-    P["Settlement proof<br/>Arc certificate + receipt · offline QR verification"]
-
-    M -->|Invoice QR| B
-    B -->|Return QR| Q
-    Q -->|Either device reconnects| R
-    R -->|Settle| C
-    C -->|Confirmed receipt| P
-```
+![Echo system architecture](docs/architecture.svg)
 
 The merchant app signs invoices and saves sales in browser storage. The buyer app keeps its wallet in iOS Keychain and saves signed orders on the phone. Both cache the checkout configuration and an Arc validator checkpoint while online. The QR exchange itself needs no network connection.
 

@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 855" role="img" aria-labelledby="title desc">
+  <title id="title">Echo system architecture</title>
+  <desc id="desc">The merchant and buyer exchange signed QR codes offline. Either client uploads the complete package to the matcher API. A durable queue feeds the relayer, which uses Arc RPC to settle buyer escrow in the checkout contract. A proof builder reads Arc receipts and certificates and serves proof through the API.</desc>
+  <defs>
+    <style>
+      .bg{fill:#fff}.zone{fill:#f8fafc;stroke:#cbd5e1;stroke-width:1.5}.card{fill:#fff;stroke:#64748b;stroke-width:1.5}.accent{fill:#eff6ff;stroke:#2563eb;stroke-width:1.5}
+      .heading{font:700 15px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#334155;letter-spacing:1.2px}
+      .name{font:700 19px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#0f172a}
+      .detail{font:14px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#475569}
+      .label{font:600 12px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#1d4ed8;letter-spacing:.3px}
+      .wire{fill:none;stroke:#2563eb;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;marker-end:url(#arrow)}
+      .qr{fill:none;stroke:#2563eb;stroke-width:2;marker-start:url(#arrow);marker-end:url(#arrow)}
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#2563eb"/></marker>
+  </defs>
+
+  <rect class="bg" width="960" height="855"/>
+  <rect class="zone" x="24" y="20" width="912" height="214" rx="12"/>
+  <text class="heading" x="48" y="52">OFFLINE-CAPABLE DEVICES</text>
+  <rect class="zone" x="24" y="291" width="912" height="356" rx="12"/>
+  <text class="heading" x="48" y="323">MATCHER SERVICE</text>
+  <rect class="zone" x="24" y="689" width="912" height="142" rx="12"/>
+  <text class="heading" x="48" y="720">ARC TESTNET</text>
+
+  <path class="qr" d="M392 143H568"/>
+  <text class="label" x="480" y="128" text-anchor="middle">SIGNED QR HANDOFF</text>
+  <path class="wire" d="M220 201V261H466V348"/>
+  <path class="wire" d="M740 201V261H494V348"/>
+  <text class="label" x="480" y="249" text-anchor="middle">EITHER DEVICE UPLOADS · POLLS STATUS · FETCHES PROOF</text>
+  <path class="wire" d="M480 420V454"/>
+  <path class="wire" d="M480 520V558"/>
+  <path class="wire" d="M620 383H792V454"/>
+  <path class="wire" d="M480 624V668H766V735"/>
+  <path class="wire" d="M817 735V520"/>
+  <path class="wire" d="M690 766H620"/>
+
+  <rect class="card" x="48" y="88" width="344" height="113" rx="10"/>
+  <text class="name" x="70" y="125">Merchant web app</text>
+  <text class="detail" x="70" y="154">Invoice signer · IndexedDB orders</text>
+  <text class="detail" x="70" y="179">Local queue and proof verifier</text>
+  <rect class="card" x="568" y="88" width="344" height="113" rx="10"/>
+  <text class="name" x="590" y="125">Buyer iPhone app</text>
+  <text class="detail" x="590" y="154">Keychain wallet · local orders</text>
+  <text class="detail" x="590" y="179">Payment signer and proof verifier</text>
+
+  <rect class="accent" x="340" y="348" width="280" height="72" rx="10"/>
+  <text class="name" x="362" y="377">Matcher HTTP API</text>
+  <text class="detail" x="362" y="402">Verify intents · status · proof</text>
+  <rect class="card" x="340" y="454" width="280" height="66" rx="10"/>
+  <text class="name" x="362" y="481">Durable match queue</text>
+  <text class="detail" x="362" y="505">runtime/matches.json</text>
+  <rect class="card" x="340" y="558" width="280" height="66" rx="10"/>
+  <text class="name" x="362" y="585">Relayer worker</text>
+  <text class="detail" x="362" y="609">Funded gas wallet · retries</text>
+  <rect class="card" x="690" y="454" width="222" height="66" rx="10"/>
+  <text class="name" x="712" y="481">Proof builder</text>
+  <text class="detail" x="712" y="505">Certificate + receipt trie</text>
+
+  <rect class="card" x="340" y="735" width="280" height="72" rx="10"/>
+  <text class="name" x="362" y="764">Checkout contract</text>
+  <text class="detail" x="362" y="789">Escrow · settle · cancel · payout</text>
+  <rect class="card" x="690" y="735" width="222" height="72" rx="10"/>
+  <text class="name" x="712" y="764">Arc RPC</text>
+  <text class="detail" x="712" y="789">State · receipts · validators</text>
+</svg>
