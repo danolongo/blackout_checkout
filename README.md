@@ -58,6 +58,8 @@ CHECKOUT_ADDRESS=0xd132eA8D7cADD65B92be0B616Ae65Bbf6F0Af037 MATCHER_PRIVATE_KEY_
 
 The matcher serves the merchant app at `http://localhost:4173` by default. It uses `ARC_RPC` (default `https://rpc.testnet.arc.io`); `MATCHER_STATE_FILE` changes the queue path. Keep the funded matcher key outside the repository. The [hosted demo](https://blackout-next.64-177-121-208.sslip.io/) uses this checkout flow.
 
+The hosted matcher and merchant page run on a separate Vultr server. Its `sslip.io` address points to that server, and the iPhone app connects there too. The earlier Cloudflare tunnel is unused, so the Mac can go offline without stopping the matcher. The payment contract lives on Arc Testnet, separate from Vultr.
+
 Open the merchant app online once to cache its assets and validator checkpoint. Back up its recovery key in Settings before clearing browser storage. Open the [iPhone project](ios/BlackoutBuyer.xcodeproj) in Xcode, select a phone and signing team, and Run; see [iOS setup](ios/README.md). Fund the buyer from Circle's Arc Testnet faucet, then use **Add → Deposit to Arc escrow** while online.
 
 To demo: prepare escrow, disconnect both devices, create and scan an invoice, approve it on iPhone, and scan the return QR on the merchant device. Reconnect **either** device to settle. Show its animated proof QR to the offline device for verification.
