@@ -21,26 +21,6 @@ private struct Avatar: View {
   var body:some View { Text(text).font(.custom("Inter",size:size/3).weight(.semibold)).foregroundStyle(Color(red:201/255,green:201/255,blue:207/255)).frame(width:size,height:size).background(Color(red:26/255,green:26/255,blue:30/255),in:Circle()).overlay(RoundedRectangle(cornerRadius:3).stroke(C.border)) }
 }
 private struct ProofFrame: Encodable {let v=1;let kind="proof-frame";let id:String;let index:Int;let total:Int;let chunk:String}
-private struct EchoMark: View {
-  var size:CGFloat=34
-  var body:some View {
-    Canvas { context, canvas in
-      let scale=canvas.width/64
-      context.scaleBy(x:scale,y:scale)
-      context.fill(Path(ellipseIn:CGRect(x:11,y:27,width:10,height:10)),with:.color(C.green))
-      for (start,control,end) in [
-        (CGPoint(x:26,y:22),CGPoint(x:33,y:32),CGPoint(x:26,y:42)),
-        (CGPoint(x:34,y:13),CGPoint(x:48,y:32),CGPoint(x:34,y:51)),
-        (CGPoint(x:42,y:5),CGPoint(x:63,y:32),CGPoint(x:42,y:59))
-      ] {
-        var path=Path()
-        path.move(to:start)
-        path.addQuadCurve(to:end,control:control)
-        context.stroke(path,with:.color(C.fg),style:StrokeStyle(lineWidth:5,lineCap:.round))
-      }
-    }.frame(width:size,height:size).accessibilityLabel("Echo")
-  }
-}
 struct BuyerView: View {
   @EnvironmentObject private var m:CheckoutModel
   @State private var imported=""
@@ -75,8 +55,8 @@ struct BuyerView: View {
   private var home:some View {
     VStack(alignment:.leading,spacing:0) {
       HStack(spacing:10) {
-        EchoMark(size:36)
-        VStack(alignment:.leading,spacing:2) { Text("Echo").font(.custom("Inter",size:16).weight(.semibold));Text("Laksh Kumar").font(.custom("Inter",size:12)).foregroundStyle(C.muted) }
+        Image(systemName:"person.crop.circle").font(.system(size:30,weight:.regular)).frame(width:36,height:36).accessibilityLabel("Profile")
+        Text("laksh K.").font(.custom("Inter",size:16).weight(.semibold))
         Spacer()
         Button { m.showingSettings=true } label:{Image(systemName:"gearshape").font(.custom("Inter",size:19)).frame(width:40,height:40).overlay(RoundedRectangle(cornerRadius:3).stroke(C.border))}
       }.padding(.top,8)
