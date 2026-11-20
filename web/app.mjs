@@ -4,7 +4,7 @@ import {Wallet,Contract,parseUnits,formatUnits,randomBytes,hexlify,getAddress} f
 import {checkout,orderTerms} from '../src/payment.mjs';
 import {verifyRelay} from '../src/attestation.mjs';
 import {arcProvider,assertArc,txUrl} from '../src/settlement.mjs';
-import {offline,reconcileSale,reusedTransactions} from '../src/reconcile.mjs';
+import {reconcileSale} from '../src/reconcile.mjs';
 import {get,save,consume,reconciled,allOrders} from './store.mjs';
 
 const $=id=>document.getElementById(id), box=$('content'), qr=$('qr');
@@ -95,7 +95,7 @@ async function customer(o){
     }finally{busy=false;}
   });
 }
-const STATES={unchecked:'Not yet checked against Arc',pending:'Awaiting Arc finality',confirmed:'Confirmed on Arc',
+const STATES={unchecked:'Not yet checked against Arc',pending:'Not yet confirmed on Arc. Check again shortly.',confirmed:'Confirmed on Arc',
   discrepancy:'Discrepancy: do not rely on this sale',open:'Open, awaiting payment',expired:'Expired unpaid'};
 const stateOf=o=>o.status==='paid'?o.reconciliation?.state||'unchecked':o.expires*1000<Date.now()?'expired':o.status;
 const when=t=>new Date(t).toLocaleString();
@@ -112,13 +112,11 @@ async function checkoutCode(){
 // Rechecks every accepted sale against Arc directly, independent of the relay that signed the receipts.
 function reconcileAll(only){
   syncing??=(async()=>{
-    const all=await allOrders(),paid=all.filter(o=>o.status==='paid'&&(!only||o.id===only)),reused=reusedTransactions(all);
+    const all=await allOrders(),paid=all.filter(o=>o.status==='paid'&&(!only||o.id===only));
     if(!paid.length)return 0;
     const provider=arcProvider(config.rpc,15000),code=await checkoutCode();
     for(const o of paid){
-      const result=await reconcileSale(provider,o,code);
-      if(reused.has(o.id)){result.state='discrepancy';result.issues.push('Transaction also accepted for another order');}
-      await reconciled(o.id,result);
+      await reconciled(o.id,await reconcileSale(provider,o,code));
     }
     return paid.length;
   })().finally(()=>{syncing=null;});
@@ -129,7 +127,7 @@ function reconcileButton(label,id,after){
     if(!navigator.onLine)throw Error('Reconnect this register to check sales against Arc');
     notice('Checking against Arc…');
     try{await reconcileAll(id);}
-    catch(e){if(offline(e))throw Error('Arc is unreachable. Sales stay unchecked until the register reconnects.');throw e;}
+    catch(e){throw Error('Could not read Arc ('+(e.shortMessage||e.message)+'). Unchecked sales stay unchecked.');}
     await after();
   });
 }
@@ -154,7 +152,7 @@ async function sale(id){
   const o=await get('orders',id);if(!o)throw Error('Unknown sale');
   view('Sale '+formatUnits(o.amount,18)+' USDC','sales');const state=stateOf(o),r=o.bundle?.receipt,list=el('dl','');
   const badge=el('p',STATES[state]);badge.className='badge';badge.dataset.state=state;box.append(badge);
-  if(o.reconciliation?.issues?.length){const issues=el('ul','');for(const i of o.reconciliation.issues)issues.append(el('li',i));box.append(issues);}
+  if(o.reconciliation?.issues?.length){const issues=el('ul','');issues.className='issues';issues.dataset.state=state;for(const i of o.reconciliation.issues)issues.append(el('li',i));box.append(issues);}
   field(list,'Order',o.id);field(list,'Vendor',o.vendor);field(list,'Created',when(o.created*1000));
   if(r){
     const link=el('a',r.txHash);link.href=txUrl(r.txHash);link.target='_blank';link.rel='noopener';

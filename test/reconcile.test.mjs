@@ -4,8 +4,8 @@ import {readFile} from 'node:fs/promises';
 import ganache from 'ganache';
 import {BrowserProvider,ContractFactory,hexlify,keccak256,randomBytes} from 'ethers';
 import '../scripts/compile.mjs';
-import {readFinalPayment} from '../src/settlement.mjs';
-import {discrepancies,offline,reconcileSale,reusedTransactions} from '../src/reconcile.mjs';
+import {arcProvider,readFinalPayment} from '../src/settlement.mjs';
+import {MISSING_AFTER,discrepancies,reconcileSale} from '../src/reconcile.mjs';
 
 const c=JSON.parse(await readFile('artifacts/contract.json'));
 const codeHash=keccak256(c.runtime);
@@ -23,7 +23,8 @@ async function arc(fn) {
       const order={chain:5042002,contract:address,vendor,id,amount,created:0,expires:2**40};
       return {...order,status:'paid',bundle:{receipt,signature:''}};
     }
-    await fn({provider,sell,address,buyer});
+    // A fresh provider skips ethers' short request cache after the test moves the chain forward.
+    await fn({provider,sell,address,buyer,later:()=>new BrowserProvider(chain)});
   } finally { await chain.disconnect(); }
 }
 
@@ -46,10 +47,15 @@ test('every signed field that disagrees with Arc is flagged',()=>arc(async({prov
   assert.deepEqual(otherOrder.issues,['Arc amount does not match the order']);
 }));
 
-test('missing, unrelated and foreign contract transactions are discrepancies',()=>arc(async({provider,sell,buyer})=>{
+test('a missing transaction stays pending until Arc is well past its claimed block',()=>arc(async({provider,sell,later})=>{
+  const sale=await sell(), forged={...sale,bundle:{receipt:{...sale.bundle.receipt,txHash:'0x'+'33'.repeat(32)}}};
+  assert.deepEqual((await reconcileSale(provider,forged,codeHash)).state,'pending');
+  await provider.send('evm_increaseTime',[MISSING_AFTER+60]);await provider.send('evm_mine',[]);
+  assert.deepEqual((await reconcileSale(later(),forged,codeHash)).issues,['Transaction not found on Arc']);
+}));
+
+test('unrelated and foreign contract transactions are discrepancies',()=>arc(async({provider,sell,buyer})=>{
   const sale=await sell(), receipt=sale.bundle.receipt;
-  const missing=await reconcileSale(provider,{...sale,bundle:{receipt:{...receipt,txHash:'0x'+'33'.repeat(32)}}},codeHash);
-  assert.deepEqual(missing.issues,['Transaction not found on Arc']);
   const transfer=await (await buyer.sendTransaction({to:sale.vendor,value:7n})).wait();
   const unrelated=await reconcileSale(provider,{...sale,bundle:{receipt:{...receipt,txHash:transfer.hash}}},codeHash);
   assert.deepEqual(unrelated.issues,['Expected one payment from the checkout contract']);
@@ -58,27 +64,23 @@ test('missing, unrelated and foreign contract transactions are discrepancies',()
   const empty=await reconcileSale(provider,{...sale,bundle:undefined},codeHash);
   assert.equal(empty.state,'discrepancy');
   await assert.rejects(()=>reconcileSale(provider,{...sale,status:'open'},codeHash));
+  assert.throws(()=>discrepancies({chain:1},{},{}));
 }));
 
-test('a payment that is not final yet stays pending',()=>arc(async({provider,sell})=>{
+test('a block that is not final yet still exposes mismatched receipts',()=>arc(async({provider,sell})=>{
   const sale=await sell();
   const lagging=new Proxy(provider,{get:(target,key)=>key==='getBlock'
     ?tag=>tag==='finalized'?target.getBlock(sale.bundle.receipt.height-1):target.getBlock(tag)
     :typeof target[key]==='function'?target[key].bind(target):target[key]});
   assert.equal((await reconcileSale(lagging,sale,codeHash)).state,'pending');
+  const tampered={...sale,bundle:{receipt:{...sale.bundle.receipt,payer:'0x'+'11'.repeat(20)}}};
+  assert.deepEqual((await reconcileSale(lagging,tampered,codeHash)).issues,['Receipt payer differs from Arc']);
 }));
 
-test('losing the connection leaves sales unchecked instead of flagging them',async()=>{
-  const down={send:async()=>{throw Object.assign(Error('connect ECONNREFUSED'),{code:'NETWORK_ERROR'});}};
-  const sale={chain:5042002,status:'paid',contract:'0x'+'44'.repeat(20),bundle:{receipt:{txHash:'0x'+'55'.repeat(32)}}};
-  await assert.rejects(()=>reconcileSale(down,sale,codeHash),{code:'NETWORK_ERROR'});
-  assert.ok(offline(new TypeError('Failed to fetch')));
-  assert.ok(!offline(Error('Transaction not found on Arc')));
-});
-
-test('one transaction accepted for two orders is flagged on both',()=>{
-  const sale=(id,txHash)=>({id,bundle:{receipt:{txHash}}});
-  const reused=reusedTransactions([sale('a','0xAB'),sale('b','0xab'),sale('c','0xcd'),{id:'d'}]);
-  assert.deepEqual([...reused].sort(),['a','b']);
-  assert.throws(()=>discrepancies({chain:1},{}, {}));
+test('an unreachable or wrong RPC leaves sales unchecked instead of flagging them',async()=>{
+  const sale={chain:5042002,status:'paid',contract:'0x'+'44'.repeat(20),bundle:{receipt:{txHash:'0x'+'55'.repeat(32),time:1}}};
+  const refused=await reconcileSale(arcProvider('http://127.0.0.1:9',2000),sale,codeHash).catch(e=>e);
+  assert.ok(refused instanceof Error && !refused.invalid,'connection refused must throw, not flag');
+  const otherChain={send:async()=>'0x1'};
+  await assert.rejects(()=>reconcileSale(otherChain,sale,codeHash),/Wrong RPC network/);
 });

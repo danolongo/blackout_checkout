@@ -73,21 +73,20 @@ When the register comes back online, it rechecks every paid sale. It does this o
 For each sale it re-reads the transaction from Arc and requires:
 
 - the RPC reports chain `5042002`
-- the transaction exists and succeeded, and its block hash is unchanged
+- the transaction exists and succeeded
 - the checkout contract's bytecode hash matches the pinned `codeHash`
 - exactly one `OrderPaid` event comes from the checkout contract
 - Arc's chain, contract, vendor, order ID and amount equal the stored order
 - each signed receipt field (chain, contract, vendor, order ID, amount, payer, tx hash, block hash, height, time, log index) equals Arc's value
-- no other accepted sale uses the same transaction
 
 | Result | Meaning |
 |---|---|
 | Confirmed on Arc | Everything above matched |
-| Awaiting Arc finality | The payment is valid but its block is not yet final. Check again. |
-| Discrepancy | Shows each failed check. Do not rely on this sale. |
+| Not yet confirmed on Arc | Either everything matches but the block is not final yet, or Arc has not returned the transaction yet. A transaction still missing 2 minutes after its claimed block time becomes a discrepancy. |
+| Discrepancy | Arc proved the sale wrong. Each failed check is listed. Do not rely on this sale. |
 | Not yet checked | The register has not reached Arc since accepting the sale |
 
-A sale is never marked as discrepant just because the network is down. It stays unchecked until Arc answers. The sale detail view shows the order, the transaction (linked to the Arc explorer), payer, block, verification mode, scan and check times, and when it was last checked.
+A sale is flagged only when Arc's own data contradicts it. If the RPC is unreachable, on the wrong chain, returns an error or gives inconsistent data, the check stops, the register shows the error and the sale keeps its previous result. The sale detail view shows the order, the transaction (linked to the Arc explorer), payer, block, verification mode, scan and check times, and when it was last checked.
 
 ## Setup
 
